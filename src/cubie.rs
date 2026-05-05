@@ -1,8 +1,22 @@
 use core::iter::Iterator;
 use std::default;
+use core::{assert, todo};
 use std::ops::Mul;
 use crate::moves::{Move::*, B_MOVE, D_MOVE, F_MOVE, L_MOVE, R_MOVE, U_MOVE};
 use crate::moves::Move;
+
+pub const FACTORIAL: [u32; 13] = [
+    1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600,
+];
+
+pub fn binomial_coefficient(n: u8, k: u8) -> u32 {
+    assert!(n <= 12);
+    assert!(k <= 12);
+    match k > n {
+        true => 0,
+        false => FACTORIAL[n as usize] / (FACTORIAL[k as usize] * FACTORIAL[(n - k) as usize]),
+    }
+}
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
