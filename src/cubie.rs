@@ -19,7 +19,7 @@ pub fn binomial_coefficient(n: u8, k: u8) -> u32 {
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Corner {
     URF = 0,
     ULF,
@@ -49,7 +49,7 @@ impl TryFrom<u8> for Corner {
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Edge {
     UR = 0,
     UF,
@@ -137,13 +137,13 @@ impl Cubie {
         corner_permutation: [Corner; 8],
         corner_orientation: [CornerOrientation; 8],
         edge_permutation: [Edge; 12],
-        edge_orientation: [EdgeOrientation; 12]
+        edge_orientation: [EdgeOrientation; 12],
     ) -> Self {
         Cubie {
             corner_permutation: corner_permutation.map(|c| c as u8),
             corner_orientation: corner_orientation.map(|c| c as u8),
             edge_permutation: edge_permutation.map(|c| c as u8),
-            edge_orientation: edge_orientation.map(|c| c as u8)
+            edge_orientation: edge_orientation.map(|c| c as u8),
         }
     }
 
@@ -162,8 +162,8 @@ impl Cubie {
             B2 => B_MOVE * B_MOVE,
             B3 => B_MOVE * B_MOVE * B_MOVE,
             L => L_MOVE,
-            L2 =>  L_MOVE * L_MOVE,
-            L3 =>  L_MOVE * L_MOVE * L_MOVE,
+            L2 => L_MOVE * L_MOVE,
+            L3 => L_MOVE * L_MOVE * L_MOVE,
             R => R_MOVE,
             R2 => R_MOVE * R_MOVE,
             R3 => R_MOVE * R_MOVE * R_MOVE,
@@ -173,6 +173,85 @@ impl Cubie {
 
     pub fn apply_moves(&self, moves: &[Move]) -> Self {
         moves.iter().fold(*self, |acc, &m|acc.apply_move(m))
+    }
+
+    pub fn corner_orientation_coord(&self) -> u16 {
+        let mut ret: u16 = 0;
+        for &orientation in self.corner_orientation.iter() {
+            ret = ret * 3 + orientation as u16;
+        }
+        ret
+    }
+
+    pub fn edge_orientation_coord(&self) -> u16 {
+        let mut ret: u16 = 0;
+        for &orientation in self.edge_orientation.iter() {
+            ret = ret * 2 + orientation as u16;
+        }
+        ret
+    }
+
+    pub fn corner_permutation_coord(&self) -> u32 {
+        let mut ret: u32 = 0;
+        for idx in 1..8 {
+            let mut accum = 0;
+            for curr in 0..idx {
+                accum += match self.corner_permutation[curr] > self.corner_permutation[idx] as u8 {
+                    true => 1,
+                    false => 0,
+                };
+            }
+            ret += accum * FACTORIAL[idx];
+        }
+        ret
+    }
+
+    pub fn edge_permutation_coord(&self) -> u32 {
+        let mut ret: u32 = 0;
+        let mut factorial: u32 = 1;
+        for idx in 1..12 {
+            factorial *= idx as u32;
+            let mut accum = 0;
+            for curr in 0..idx {
+                accum += match self.edge_permutation[curr] > self.edge_permutation[idx] as u8 {
+                    true => 1,
+                    false => 0,
+                };
+            }
+            ret += accum * factorial;
+        }
+        ret
+    }
+
+    pub fn ud_slice_coord(&self) -> u16 {
+        let mut occupied: [u16; 12] = [0; 12];
+        for (edge_idx, &edge) in self.edge_permutation.iter().enumerate() {
+            occupied[edge_idx] = match edge >= 8 {
+                true => 1,
+                false => 0,
+            }
+        }
+        let mut ret: u16 = 0;
+        let mut cnt: i16 = -1;
+        for (idx, if_occupied) in occupied.iter().enumerate() {
+            ret += match if_occupied {
+                0 => {
+                    match cnt {
+                        -1 => 0,
+                        _ => {
+                            // max value is 11C3 = 462 << u16MAX
+                            binomial_coefficient(idx as u8, cnt as u8) as u16
+                        }
+                    }
+                }
+                1 => {
+                    cnt += 1;
+                    0 as u16
+                }
+                _ => 0,
+            }
+        }
+        ret
     }
 }
 
