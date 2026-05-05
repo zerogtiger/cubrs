@@ -253,6 +253,42 @@ impl Cubie {
         }
         ret
     }
+
+    pub fn phase2_edge_permutation_coord(&self) -> u32 {
+        // TODO: asserts cube is in G1
+        let mut ret: u32 = 0;
+        let mut factorial: u32 = 1;
+        for idx in 1..8 {
+            factorial *= idx as u32;
+            let mut accum = 0;
+            for curr in 0..idx {
+                accum += match self.edge_permutation[curr] > self.edge_permutation[idx] as u8 {
+                    true => 1,
+                    false => 0,
+                };
+            }
+            ret += accum * factorial;
+        }
+        ret
+    }
+
+    pub fn phase2_ud_slice_coord(&self) -> u16 {
+        // TODO: asserts cube is in G1
+        let mut ret: u16 = 0;
+        let mut factorial: u16 = 1;
+        for idx in 1..4 {
+            factorial *= idx as u16;
+            let mut accum = 0;
+            for curr in 8..(8 + idx) {
+                accum += match self.edge_permutation[curr] > self.edge_permutation[8 + idx] as u8 {
+                    true => 1,
+                    false => 0,
+                };
+            }
+            ret += accum * factorial;
+        }
+        ret
+    }
 }
 
 impl Default for Cubie {
