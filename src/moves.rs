@@ -3,6 +3,7 @@ use crate::cubie::CornerOrientation::*;
 use crate::cubie::Edge::*;
 use crate::cubie::EdgeOrientation::*;
 use crate::cubie::*;
+use Move::*;
 
 macro_rules! map_to_u8 {
     ($($c:ident),*) => {
@@ -10,9 +11,10 @@ macro_rules! map_to_u8 {
     };
 }
 
+#[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Move {
-    U,
+    U = 0,
     U2,
     U3,
     D,
@@ -30,6 +32,15 @@ pub enum Move {
     R,
     R2,
     R3,
+}
+
+impl Move {
+    pub const ALL: [Move; 18] = [
+        U, U2, U3, D, D2, D3, F, F2, F3, B, B2, B3, L, L2, L3, R, R2, R3
+    ];
+    pub const ALL_UNIQUE: [Move; 6] = [
+        U, D, F, B, L, R
+    ];
 }
 
 pub const U_MOVE: Cubie = Cubie {
