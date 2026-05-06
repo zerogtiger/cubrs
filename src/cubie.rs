@@ -180,16 +180,20 @@ impl Cubie {
 
     pub fn corner_orientation_coord(&self) -> u16 {
         let mut ret: u16 = 0;
-        for &orientation in self.corner_orientation.iter() {
-            ret = ret * 3 + orientation as u16;
+        if let Some((last, rest)) = self.corner_orientation.split_last() {
+            for &orientation in rest {
+                ret = ret * 3 + orientation as u16;
+            }
         }
         ret
     }
 
     pub fn edge_orientation_coord(&self) -> u16 {
         let mut ret: u16 = 0;
-        for &orientation in self.edge_orientation.iter() {
-            ret = ret * 2 + orientation as u16;
+        if let Some((last, rest)) = self.edge_orientation.split_last() {
+            for &orientation in rest {
+                ret = ret * 2 + orientation as u16;
+            }
         }
         ret
     }
@@ -294,17 +298,23 @@ impl Cubie {
     }
 
     pub fn set_corner_orientation_coord(&mut self, mut corner_orient_coord: u16) {
-        for idx in (0..8).rev() {
+        let mut accum = 0;
+        for idx in (0..7).rev() {
             self.corner_orientation[idx] = (corner_orient_coord%3) as u8;
             corner_orient_coord /= 3;
+            accum = (accum + self.corner_orientation[idx])%3;
         }
+        self.corner_orientation[7] = (3 - accum)%3;
     }
 
     pub fn set_edge_orientation_coord(&mut self, mut edge_orient_coord: u16) {
-        for idx in (0..12).rev() {
+        let mut accum = 0;
+        for idx in (0..11).rev() {
             self.edge_orientation[idx] = (edge_orient_coord%2) as u8;
             edge_orient_coord /= 2;
+            accum = (accum + self.edge_orientation[idx])%2;
         }
+        self.edge_orientation[11] = accum;
     }
 
     pub fn set_corner_permutation_coord(&mut self, mut corner_perm_coord: u32) {
