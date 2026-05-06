@@ -292,6 +292,72 @@ impl Cubie {
         }
         ret
     }
+
+    pub fn set_corner_orientation_coord(&mut self, mut corner_orient_coord: u16) {
+        for idx in (0..8).rev() {
+            self.corner_orientation[idx] = (corner_orient_coord%3) as u8;
+            corner_orient_coord /= 3;
+        }
+    }
+
+    pub fn set_edge_orientation_coord(&mut self, mut edge_orient_coord: u16) {
+        for idx in (0..12).rev() {
+            self.edge_orientation[idx] = (edge_orient_coord%2) as u8;
+            edge_orient_coord /= 2;
+        }
+    }
+
+    pub fn set_corner_permutation_coord(&mut self, mut corner_perm_coord: u32) {
+        let mut items = vec![0, 1, 2, 3, 4, 5, 6, 7];
+        for idx in (0..8).rev() {
+            self.corner_permutation[idx] = items.remove(idx - (corner_perm_coord/FACTORIAL[idx]) as usize);
+            corner_perm_coord %= FACTORIAL[idx];
+        }
+    }
+
+    pub fn set_edge_permutation_coord(&mut self, mut edge_perm_coord: u32) {
+        let mut items = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+        for idx in (0..12).rev() {
+            self.edge_permutation[idx] = items.remove(idx - (edge_perm_coord/FACTORIAL[idx]) as usize);
+            edge_perm_coord %= FACTORIAL[idx];
+        }
+    }
+
+    pub fn set_ud_slice_coord(&mut self, mut ud_slice_coord: u16) {
+        let mut items = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+        let mut k = 3;
+        for n in (0..12).rev() {
+            match ud_slice_coord >= (binomial_coefficient(n, k) as u16) {
+                true => {
+                    ud_slice_coord -= binomial_coefficient(n, k) as u16;
+                    self.edge_permutation[n as usize] = items.remove(0);
+                }
+                false => {
+                    k-=1;
+                    self.edge_permutation[n as usize] = items.remove(items.len() - 1);
+                }
+            }
+        }
+    }
+
+    pub fn set_phase2_edge_permutation_coord(&mut self, mut phase2_edge_perm_coord: u32) {
+        // TODO: assert cube in G1
+        let mut items = vec![0, 1, 2, 3, 4, 5, 6, 7];
+        for idx in (0..8).rev() {
+            self.edge_permutation[idx] = items.remove(idx - (phase2_edge_perm_coord/FACTORIAL[idx]) as usize);
+            phase2_edge_perm_coord %= FACTORIAL[idx];
+        }
+    }
+
+    pub fn set_phase2_ud_slice_coord(&mut self, mut phase2_ud_slice_coord: u16) {
+        // TODO: assert cube in G1
+        let mut items = vec![8, 9, 10, 11];
+        for idx in (0..4).rev() {
+            self.edge_permutation[8 + idx] = items.remove(idx - (phase2_ud_slice_coord as u32/FACTORIAL[idx]) as usize);
+            phase2_ud_slice_coord %= FACTORIAL[idx] as u16;
+        }
+    }
+
 }
 
 impl Default for Cubie {
