@@ -1,9 +1,12 @@
+use core::assert;
+
 use crate::cubie::Corner::*;
 use crate::cubie::CornerOrientation::*;
 use crate::cubie::Edge::*;
 use crate::cubie::EdgeOrientation::*;
 use crate::cubie::*;
 use Move::*;
+use SymMove::*;
 
 macro_rules! map_to_u8 {
     ($($c:ident),*) => {
@@ -85,5 +88,73 @@ pub const B_MOVE: Cubie = Cubie {
     corner_orientation: map_to_u8![No, No, CW, CCW, No, No, CCW, CW],
     edge_permutation: map_to_u8![UR, UF, UL, BR, DR, DF, DL, BL, FR, FL, UB, DB],
     edge_orientation: [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1],
+};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SymMove {
+    S_F2 = 0,
+    S_U4,
+    S_LR2,
+}
+
+impl SymMove {
+    pub const ALL: [SymMove; 3] = [S_F2, S_U4, S_LR2];
+
+    pub fn sym_index_to_cubie_move(mut sym_idx: u8) -> Cubie {
+        assert!(sym_idx < 16);
+        let mut ret = Cubie::default();
+        for _ in 0..sym_idx%2 {
+            ret = ret * S_F2_MOVE;
+        }
+        sym_idx /= 2;
+        for _ in 0..sym_idx%4 {
+            ret = ret * S_U4_MOVE;
+        }
+        sym_idx /= 4;
+        for _ in 0..sym_idx {
+            ret = ret * S_LR2_MOVE;
+        }
+        ret
+    }
+
+    pub fn sym_index_to_inverse_cubie_move(mut sym_idx: u8) -> Cubie {
+        assert!(sym_idx < 16);
+        let mut ret = Cubie::default();
+        let f2 = sym_idx%2;
+        sym_idx /= 2;
+        let u4 = sym_idx%4;
+        let lr = sym_idx/4;
+        for _ in 0..lr%2 {
+            ret = ret * S_LR2_MOVE;
+        }
+        for _ in 0..(4 - u4)%4 {
+            ret = ret * S_U4_MOVE;
+        }
+        for _ in 0..f2 {
+            ret = ret * S_F2_MOVE;
+        }
+        ret
+    }
+}
+
+pub const S_F2_MOVE: Cubie = Cubie {
+    corner_permutation: map_to_u8![DLF,DRF,DRB,DLB,ULF,URF,URB,ULB],
+    edge_permutation: map_to_u8![DL,DF,DR,DB,UL,UF,UR,UB,FL,FR,BR,BL],
+    corner_orientation: [0,0,0,0,0,0,0,0],
+    edge_orientation: [0,0,0,0,0,0,0,0,0,0,0,0]
+};
+
+pub const S_U4_MOVE: Cubie = Cubie {
+    corner_permutation: map_to_u8![URB,URF,ULF,ULB,DRB,DRF,DLF,DLB],
+    edge_permutation: map_to_u8![UB,UR,UF,UL,DB,DR,DF,DL,BR,FR,FL,BL],
+    corner_orientation: [0,0,0,0,0,0,0,0],
+    edge_orientation: [0,0,0,0,0,0,0,0,1,1,1,1]
+};
+
+pub const S_LR2_MOVE: Cubie = Cubie {
+    corner_permutation: map_to_u8![ULF,URF,URB,ULB,DLF,DRF,DRB,DLB],
+    edge_permutation: map_to_u8![UL,UF,UR,UB,DL,DF,DR,DB,FL,FR,BR,BL],
+    corner_orientation: [3,3,3,3,3,3,3,3],
+    edge_orientation: [0,0,0,0,0,0,0,0,0,0,0,0],
 };
 
