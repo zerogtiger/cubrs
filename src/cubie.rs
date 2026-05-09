@@ -16,6 +16,7 @@ pub const EDGE_PERMUTATION_COUNT: u32 = 479001600;
 pub const UD_SLICE_COUNT: u16 = 495;
 pub const PHASE2_EDGE_PERMUTATION_COUNT: u32 = 40320;
 pub const PHASE2_UD_SLICE_COUNT: u16 = 24;
+pub const FLIP_UD_SLICE_COUNT: u16 = 64430;
 
 pub fn binomial_coefficient(n: i8, k: i8) -> u32 {
     assert!(n <= 12);
