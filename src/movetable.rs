@@ -95,6 +95,19 @@ impl FlipUDSliceTable {
         assert!(false);
         (0, 0)
     }
+
+    // (class index, sym)
+    pub fn decode_sym_coord(sym_coord: u32) -> (u16, u8) {
+        ((sym_coord / 16) as u16, (sym_coord % 16) as u8)
+    }
+
+    pub fn encode_sym_coord(class_idx: u16, sym_idx: u8) -> u32 {
+        class_idx as u32 * 16 + sym_idx as u32
+    }
+
+    pub fn class_idx_to_raw_coord(&self, class_idx: u16) -> (u16, u16) {
+        Self::decode_raw_coord(self.class_idx_to_rep_encoded_raw_coord[class_idx as usize])
+    }
 }
 
 pub struct MoveTable {
