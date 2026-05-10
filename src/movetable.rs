@@ -13,29 +13,37 @@ use crate::{
 };
 
 pub struct FlipUDSliceTable {
-    class_idx_to_rep_raw_coord: Vec<u32>,
-    rep_raw_coord_to_class_idx: HashMap<u32, u16>,
+    class_idx_to_rep_encoded_raw_coord: Vec<u32>,
+    rep_encoded_raw_coord_to_class_idx: HashMap<u32, u16>,
 }
 
 impl FlipUDSliceTable {
     pub fn load_or_generate() -> Self {
         // TODO: save to disk
         let mut ret = Self {
-            class_idx_to_rep_raw_coord: Vec::new(),
-            rep_raw_coord_to_class_idx: HashMap::new(),
+            class_idx_to_rep_encoded_raw_coord: Vec::new(),
+            rep_encoded_raw_coord_to_class_idx: HashMap::new(),
         };
         ret.generate_tables();
         ret
     }
 
     #[inline]
-    fn get_raw_coord(edge_orient_coord: u16, ud_slice_coord: u16) -> usize {
+    fn encode_raw_coord(edge_orient_coord: u16, ud_slice_coord: u16) -> usize {
         edge_orient_coord as usize * UD_SLICE_COUNT as usize + ud_slice_coord as usize
+    }
+
+    // returns (edge orientation, ud slice)
+    fn decode_raw_coord(raw_coord: u32) -> (u16, u16) {
+        (
+            (raw_coord / UD_SLICE_COUNT as u32) as u16,
+            (raw_coord % UD_SLICE_COUNT as u32) as u16,
+        )
     }
 
     fn generate_tables(&mut self) {
         let mut flip_ud_coord: u16 = 0;
-        self.class_idx_to_rep_raw_coord
+        self.class_idx_to_rep_encoded_raw_coord
             .resize(FLIP_UD_SLICE_COUNT as usize, u32::MAX);
 
         let mut raw_coord_used: Vec<bool> =
@@ -43,11 +51,11 @@ impl FlipUDSliceTable {
 
         for edge_orient_coord in 0..EDGE_ORIENTATION_COUNT {
             for ud_slice_coord in 0..UD_SLICE_COUNT {
-                if raw_coord_used[Self::get_raw_coord(edge_orient_coord, ud_slice_coord)] {
+                if raw_coord_used[Self::encode_raw_coord(edge_orient_coord, ud_slice_coord)] {
                     continue;
                 }
 
-                let min_coord = Self::get_raw_coord(edge_orient_coord, ud_slice_coord) as u32;
+                let min_coord = Self::encode_raw_coord(edge_orient_coord, ud_slice_coord) as u32;
                 for sym_moves in 0..16 {
                     // TODO: make this faster
                     let mut cube: Cubie = Cubie::default();
@@ -58,18 +66,18 @@ impl FlipUDSliceTable {
                         * SymMove::sym_index_to_cubie_move(sym_moves);
 
                     let new_raw_coord =
-                        Self::get_raw_coord(cube.edge_orientation_coord(), cube.ud_slice_coord());
+                        Self::encode_raw_coord(cube.edge_orientation_coord(), cube.ud_slice_coord());
                     raw_coord_used[new_raw_coord] = true;
                 }
-                self.class_idx_to_rep_raw_coord[flip_ud_coord as usize] = min_coord;
-                self.rep_raw_coord_to_class_idx
+                self.class_idx_to_rep_encoded_raw_coord[flip_ud_coord as usize] = min_coord;
+                self.rep_encoded_raw_coord_to_class_idx
                     .insert(min_coord, flip_ud_coord);
                 flip_ud_coord += 1;
             }
         }
     }
 
-    pub fn raw_coord_to_sym_idx(&self, edge_orient_coord: u16, ud_slice_coord: u16) -> (u16, u8) {
+    pub fn raw_coord_to_sym_coord(&self, edge_orient_coord: u16, ud_slice_coord: u16) -> (u16, u8) {
         for i in 0..16 {
             let mut cube: Cubie = Cubie::default();
             cube.set_edge_orientation_coord(edge_orient_coord);
@@ -77,8 +85,8 @@ impl FlipUDSliceTable {
             cube = SymMove::sym_index_to_cubie_move(i)
                 * cube
                 * SymMove::sym_index_to_inverse_cubie_move(i);
-            match self.rep_raw_coord_to_class_idx.get(
-                &(Self::get_raw_coord(cube.edge_orientation_coord(), cube.ud_slice_coord()) as u32),
+            match self.rep_encoded_raw_coord_to_class_idx.get(
+                &(Self::encode_raw_coord(cube.edge_orientation_coord(), cube.ud_slice_coord()) as u32),
             ) {
                 None => continue,
                 Some(class_idx) => return (*class_idx, i),
