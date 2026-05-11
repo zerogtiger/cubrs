@@ -5,8 +5,9 @@ use core::{
     fmt::Debug,
     usize,
 };
-use std::{collections::HashMap, fs::File};
+use std::collections::VecDeque;
 use std::sync::Arc;
+use std::{collections::HashMap, fs::File};
 
 use crate::{
     cubie::*,
@@ -423,6 +424,137 @@ impl MoveTable {
                         Self::set_next_coord(table, coord as usize, move_idx, get_coord_fn(&cube));
                         move_idx += 1;
                     }
+                }
+            }
+        }
+    }
+}
+
+pub struct TwistConjugateTable {
+    twist_conjugate: Vec<u16>,
+}
+
+impl TwistConjugateTable {
+    pub fn load_or_generate() -> Self {
+        let mut ret = Self {
+            twist_conjugate: Default::default(),
+        };
+        ret.generate_tables();
+        ret
+    }
+
+    pub fn get_twist_conjugate(&self, corner_orient_coord: u16, sym_idx: u8) -> u16 {
+        self.twist_conjugate[Self::encode_corner_orient_sym_idx(corner_orient_coord, sym_idx) as usize]
+    }
+
+    fn encode_corner_orient_sym_idx(corner_orient_coord: u16, sym_idx: u8) -> u16 {
+        corner_orient_coord * SYM_COUNT as u16 + sym_idx as u16
+    }
+
+    fn generate_tables(&mut self) {
+        let mut cube: Cubie = Cubie::default();
+        self.twist_conjugate
+            .resize(CORNER_ORIENTATION_COUNT as usize * SYM_COUNT as usize, 0);
+        for corner_orient_coord in 0..CORNER_ORIENTATION_COUNT {
+            for sym_idx in 0..SYM_COUNT {
+                cube.set_corner_orientation_coord(corner_orient_coord);
+                cube = SymMove::sym_index_to_cubie_move(sym_idx)
+                    * cube
+                    * SymMove::sym_index_to_inverse_cubie_move(sym_idx);
+                self.twist_conjugate
+                    [Self::encode_corner_orient_sym_idx(corner_orient_coord, sym_idx) as usize] =
+                    cube.corner_orientation_coord();
+            }
+        }
+    }
+}
+
+pub struct PruneTable {
+    // phase 1 coordinate: corner orient x flip ud coord
+    // 2187 x 64430 = 140,908,410
+    phase1_table: Vec<u8>,
+    // phase 2 coordinate: corner_perm (equiv) x phase2_edge_perm
+    // 2768 x 40320 = 111,605,760
+    phase2_table: Vec<u8>,
+    twist_conjugate_table: Arc<TwistConjugateTable>,
+}
+
+impl PruneTable {
+    pub fn load_or_generate(move_table: &MoveTable, twist_conjugate_table: Arc<TwistConjugateTable>) -> Self {
+        let mut ret = Self {
+            phase1_table: Default::default(),
+            phase2_table: Default::default(),
+            twist_conjugate_table,
+        };
+        ret.generate_phase1_prune_table(move_table);
+        ret
+    }
+
+    pub fn get_phase_1_optimal_depth(
+        &self,
+        corner_orient_coord: u16,
+        flip_ud_slice_class_idx: u16,
+        flip_ud_slice_sym_idx: u8,
+    ) -> u8 {
+        let result_corner_orient_coord = self.twist_conjugate_table.get_twist_conjugate(corner_orient_coord, flip_ud_slice_sym_idx);
+        self.get_phase1_table(result_corner_orient_coord, flip_ud_slice_class_idx)
+    }
+
+    fn encode_phase_1_coord(corner_orient_coord: u16, flip_ud_slice_coord: u16) -> u32 {
+        CORNER_ORIENTATION_COUNT as u32 * flip_ud_slice_coord as u32 + corner_orient_coord as u32
+    }
+
+    // (corner orient, flip ud slice)
+    fn decode_phase_1_coord(phase_1_coord: u32) -> (u16, u16) {
+        (
+            (phase_1_coord % CORNER_ORIENTATION_COUNT as u32) as u16,
+            (phase_1_coord / CORNER_ORIENTATION_COUNT as u32) as u16,
+        )
+    }
+
+    fn get_phase1_table(&self, corner_orient_coord: u16, flip_ud_slice_coord: u16) -> u8 {
+        self.phase1_table
+            [Self::encode_phase_1_coord(corner_orient_coord, flip_ud_slice_coord) as usize]
+    }
+
+    fn set_phase1_table(&mut self, corner_orient_coord: u16, flip_ud_slice_coord: u16, depth: u8) {
+        self.phase1_table
+            [Self::encode_phase_1_coord(corner_orient_coord, flip_ud_slice_coord) as usize] = depth;
+    }
+
+    fn generate_phase1_prune_table(&mut self, move_table: &MoveTable) {
+        self.phase1_table.resize(
+            CORNER_ORIENTATION_COUNT as usize * FLIP_UD_SLICE_COUNT as usize,
+            u8::MAX,
+        );
+
+        self.set_phase1_table(0, 0, 0);
+        // corner orient, flip ud coord
+        let mut q: VecDeque<(u16, u16)> = VecDeque::new();
+        q.push_back((0, 0));
+        let mut curr = 0;
+        let mut old = 0;
+        while !q.is_empty() {
+            curr += 1;
+            if (curr / 1_000_000 != old) {
+                old += 1;
+                println!("{old}");
+            }
+            let top = q.pop_front().unwrap();
+            let curr_depth = self.get_phase1_table(top.0, top.1);
+            for move_action in Move::ALL {
+                let next: (u16, u16) = (
+                    move_table.get_next_corner_orient_coord(top.0, move_action as u8),
+                    move_table
+                        .get_next_flip_ud_slice_sym_coord(top.1, 0, move_action as u8)
+                        .0, // class idx
+                );
+                match self.get_phase1_table(next.0, next.1) == u8::MAX {
+                    true => {
+                        q.push_back(next);
+                        self.set_phase1_table(next.0, next.1, curr_depth + 1);
+                    }
+                    false => {}
                 }
             }
         }
