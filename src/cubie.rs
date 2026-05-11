@@ -382,10 +382,34 @@ impl Mul for Cubie {
         let mut ret: Cubie = Default::default();
         for i in 0..8 {
             ret.corner_permutation[i] = self.corner_permutation[rhs.corner_permutation[i] as usize];
-            ret.corner_orientation[i] = (self.corner_orientation
-                [rhs.corner_permutation[i] as usize]
-                + rhs.corner_orientation[i])
-                % 3;
+
+            let ori_a = self.corner_orientation[rhs.corner_permutation[i] as usize];
+            let ori_b = rhs.corner_orientation[i];
+            ret.corner_orientation[i] = 
+                if ori_a < 3 && ori_b < 3 {
+                    match ori_a + ori_b >= 3 {
+                        true => ori_a + ori_b - 3,
+                        false => ori_a + ori_b,
+                    }
+                }
+            else if ori_a < 3 && ori_b >= 3 {
+                match ori_a + ori_b >= 6 {
+                    true => ori_a + ori_b - 3,
+                    false => ori_a + ori_b,
+                }
+            }
+            else if ori_a >= 3 && ori_b < 3 {
+                match ori_a - ori_b < 3 {
+                    true => 3 + ori_a - ori_b,
+                    false => ori_a - ori_b,
+                }
+            }
+            else {
+                match (ori_a as i8 - ori_b as i8) < 0 {
+                    true => 3 + ori_a - ori_b,
+                    false => ori_a - ori_b
+                }
+            }
         }
         for i in 0..12 {
             ret.edge_permutation[i] = self.edge_permutation[rhs.edge_permutation[i] as usize];
