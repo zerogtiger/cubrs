@@ -53,6 +53,46 @@ impl SymMoveTable {
     }
 }
 
+// Sym index, sym index -> sym index (multiplication)
+pub struct SymMultTable {
+    sym_mult_table: Vec<u8>,
+}
+
+impl SymMultTable {
+    pub fn load_or_generate() -> Self {
+        let mut ret = Self {
+            sym_mult_table: Vec::new(),
+        };
+        ret.generate_tables();
+        ret
+    }
+
+    fn encode_sym_idx_sym_idx(sym_idx_1: u8, sym_idx_2: u8) -> u16 {
+        sym_idx_1 as u16 * SYM_COUNT as u16 + sym_idx_2 as u16
+    }
+
+    fn generate_tables(&mut self) {
+        self.sym_mult_table
+            .resize(SYM_COUNT as usize * SYM_COUNT as usize, 0);
+        for sym_idx_1 in 0..SYM_COUNT {
+            for sym_idx_2 in 0..SYM_COUNT {
+                match SymMove::sym_action_to_sym_index(
+                    &(SymMove::sym_index_to_cubie_move(sym_idx_1)
+                    * SymMove::sym_index_to_cubie_move(sym_idx_2))
+                ) {
+                    Ok(result_sym_move) => {
+                        self.sym_mult_table[Self::encode_sym_idx_sym_idx(
+                            sym_idx_1,
+                            sym_idx_2
+                        ) as usize] = result_sym_move;
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+}
+
 pub struct FlipUDSliceTable {
     class_idx_to_rep_encoded_raw_coord: Vec<u32>,
     rep_encoded_raw_coord_to_class_idx: HashMap<u32, u16>,

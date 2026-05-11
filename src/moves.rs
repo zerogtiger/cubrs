@@ -167,6 +167,15 @@ impl SymMove {
         }
         ret
     }
+    
+    pub fn sym_action_to_sym_index(sym_action: &Cubie) -> Result<u8, ()> {
+        for sym_idx in 0..SYM_COUNT {
+            if Self::sym_index_to_cubie_move(sym_idx) == *sym_action {
+                return Ok(sym_idx);
+            }
+        }
+        Err(())
+    }
 }
 
 pub const S_F2_MOVE: Cubie = Cubie {
