@@ -6,6 +6,7 @@ use core::{
     usize,
 };
 use std::{collections::HashMap, fs::File};
+use std::sync::Arc;
 
 use crate::{
     cubie::*,
@@ -24,6 +25,10 @@ impl SymMoveTable {
         };
         ret.generate_tables();
         ret
+    }
+
+    pub fn get_sym_move(&self, sym_idx: u8, move_action: u8) -> u8 {
+        self.sym_move_table[Self::encode_sym_idx_move_action(sym_idx, move_action) as usize]
     }
 
     fn encode_sym_idx_move_action(sym_idx: u8, move_action: u8) -> u16 {
@@ -46,7 +51,10 @@ impl SymMoveTable {
                             move_action as u8,
                         ) as usize] = result_move_action as u8;
                     }
-                    _ => {}
+                    Err(_) =>  {
+                        println!("{sym_idx}, {move_action:?} failed");
+                        panic!("Resulting move not primitive")
+                    }
                 }
             }
         }
@@ -65,6 +73,10 @@ impl SymMultTable {
         };
         ret.generate_tables();
         ret
+    }
+
+    pub fn get_sym_mult(&self, sym_idx_1: u8, sym_idx_2: u8) -> u8 {
+        self.sym_mult_table[Self::encode_sym_idx_sym_idx(sym_idx_1, sym_idx_2) as usize]
     }
 
     fn encode_sym_idx_sym_idx(sym_idx_1: u8, sym_idx_2: u8) -> u16 {
@@ -86,7 +98,7 @@ impl SymMultTable {
                             sym_idx_2
                         ) as usize] = result_sym_move;
                     }
-                    _ => {}
+                    Err(_) => panic!("Resulting multiplication not primitive")
                 }
             }
         }
@@ -194,8 +206,9 @@ impl FlipUDSliceTable {
 pub struct MoveTable {
     // phase 1
     pub corner_orient_table: Vec<u16>,
-    pub edge_orient_table: Vec<u16>,
-    pub ud_slice_table: Vec<u16>,
+    pub flip_ud_slice_table: Vec<u32>,
+    sym_move_table: Arc<SymMoveTable>,
+    sym_mult_table: Arc<SymMultTable>,
     // phase 2
     pub corner_perm_table: Vec<u32>,
     pub phase2_edge_perm_table: Vec<u32>,
@@ -203,36 +216,53 @@ pub struct MoveTable {
 }
 
 impl MoveTable {
-    pub fn load_or_generate() -> Self {
+    pub fn load_or_generate(
+        flip_ud_slice_table: &FlipUDSliceTable,
+        sym_move_table: Arc<SymMoveTable>,
+        sym_mult_table: Arc<SymMultTable>,
+    ) -> Self {
         // let file = File::create("movetable/.txt");
         let mut table: Self = Self {
+            // phase 1
             corner_orient_table: Default::default(),
-            edge_orient_table: Default::default(),
-            ud_slice_table: Default::default(),
+            flip_ud_slice_table: Default::default(),
+            sym_move_table,
+            sym_mult_table,
+            // phase 2
             corner_perm_table: Default::default(),
             phase2_edge_perm_table: Default::default(),
             phase2_ud_slice_table: Default::default(),
         };
-        Self::generate_move_table_u16(
+
+        // phase 1
+        Self::generate_move_table(
             &mut table.corner_orient_table,
+            0,
             CORNER_ORIENTATION_COUNT,
             |cube, coord| cube.set_corner_orientation_coord(coord),
             |cube| cube.corner_orientation_coord(),
         );
-        Self::generate_move_table_u16(
-            &mut table.edge_orient_table,
-            EDGE_ORIENTATION_COUNT,
-            |cube, coord| cube.set_edge_orientation_coord(coord),
-            |cube| cube.edge_orientation_coord(),
+        Self::generate_move_table(
+            &mut table.flip_ud_slice_table,
+            0,
+            FLIP_UD_SLICE_COUNT,
+            |cube, flip_ud_coord| {
+                let (edge_orient_coord, ud_slice_coord) =
+                    flip_ud_slice_table.class_idx_to_raw_coord(flip_ud_coord);
+                cube.set_edge_orientation_coord(edge_orient_coord);
+                cube.set_ud_slice_coord(ud_slice_coord);
+            },
+            |cube| {
+                let (class_idx, sym_idx) = flip_ud_slice_table
+                    .raw_coord_to_sym_coord(cube.edge_orientation_coord(), cube.ud_slice_coord());
+                FlipUDSliceTable::encode_sym_coord(class_idx, sym_idx)
+            },
         );
-        Self::generate_move_table_u16(
-            &mut table.ud_slice_table,
-            UD_SLICE_COUNT,
-            |cube, coord| cube.set_ud_slice_coord(coord),
-            |cube| cube.ud_slice_coord(),
-        );
-        Self::generate_move_table_u32(
+
+        // phase 2
+        Self::generate_move_table(
             &mut table.corner_perm_table,
+            0,
             CORNER_PERMUTATION_COUNT,
             |cube, coord| cube.set_corner_permutation_coord(coord),
             |cube| cube.corner_permutation_coord(),
@@ -252,7 +282,7 @@ impl MoveTable {
         table
     }
 
-    pub fn get_corner_orient_coord(&self, corner_orient_coord: u16, move_action: u8) -> u16 {
+    pub fn get_next_corner_orient_coord(&self, corner_orient_coord: u16, move_action: u8) -> u16 {
         Self::get_next_coord(
             &self.corner_orient_table,
             corner_orient_coord as usize,
@@ -260,36 +290,46 @@ impl MoveTable {
         )
     }
 
-    pub fn get_edge_orient_coord(&self, edge_orient_coord: u16, move_action: u8) -> u16 {
-        Self::get_next_coord(
-            &self.edge_orient_table,
-            edge_orient_coord as usize,
-            move_action,
-        )
+    // flip_ud_coord, sym move
+    pub fn get_next_flip_ud_slice_sym_coord(
+        &self,
+        flip_ud_slice_class_idx: u16,
+        flip_ud_slice_sym_idx: u8,
+        move_action: u8,
+    ) -> (u16, u8) {
+        let symmetry_move_action = self.sym_move_table.get_sym_move(flip_ud_slice_sym_idx, move_action);
+        let sym_coord = Self::get_next_coord(
+            &self.flip_ud_slice_table,
+            flip_ud_slice_class_idx as usize,
+            symmetry_move_action,
+        );
+        let (result_class_idx, result_sym_idx) = FlipUDSliceTable::decode_sym_coord(sym_coord);
+        (result_class_idx, self.sym_mult_table.get_sym_mult(result_sym_idx, flip_ud_slice_sym_idx))
     }
 
-    pub fn get_ud_slice_coord(&self, ud_slice_coord: u16, move_action: u8) -> u16 {
-        Self::get_next_coord(
-            &self.ud_slice_table,
-            ud_slice_coord as usize,
-            move_action,
-        )
-    }
-    pub fn get_corner_perm_coord(&self, corner_perm_coord: u32, move_action: u8) -> u32 {
+    pub fn get_next_corner_perm_coord(&self, corner_perm_coord: u32, move_action: u8) -> u32 {
         Self::get_next_coord(
             &self.corner_perm_table,
             corner_perm_coord as usize,
             move_action,
         )
     }
-    pub fn get_phase2_edge_perm_coord(&self, phase2_edge_perm_coord: u32, move_action: u8) -> u32 {
+    pub fn get_next_phase2_edge_perm_coord(
+        &self,
+        phase2_edge_perm_coord: u32,
+        move_action: u8,
+    ) -> u32 {
         Self::get_next_coord(
             &self.phase2_edge_perm_table,
             phase2_edge_perm_coord as usize,
             move_action,
         )
     }
-    pub fn get_phase2_ud_slice_coord(&self, phase2_ud_slice_coord: u16, move_action: u8) -> u16 {
+    pub fn get_next_phase2_ud_slice_coord(
+        &self,
+        phase2_ud_slice_coord: u16,
+        move_action: u8,
+    ) -> u16 {
         Self::get_next_coord(
             &self.phase2_ud_slice_table,
             phase2_ud_slice_coord as usize,
@@ -305,12 +345,38 @@ impl MoveTable {
         table[coord * 18 + move_action as usize] = value;
     }
 
-    // Intentionally duplicated for u16 and u32 instead of generics.
-    // numeric conversion traits like From, Into, TryFrom make abstraction unnecessarily complex
-    // especially only for two types; 
-    // for some reason u32 does not implement Into<usize>
-    // tried workarounds for like an hour and thought I've learned enough can spend time better
-    fn generate_move_table_u16<FSet, FGet> (
+    fn generate_move_table<T, U, FSet, FGet>(
+        table: &mut Vec<T>,
+        default_value: T,
+        max_coord: U,
+        mut set_coord_fn: FSet,
+        get_coord_fn: FGet,
+    ) where
+        T: Copy,
+        U: TryInto<usize> + TryFrom<usize>,
+        <U as TryFrom<usize>>::Error: Debug,
+        <U as TryInto<usize>>::Error: Debug,
+        FSet: FnMut(&mut Cubie, U),
+        FGet: Fn(&Cubie) -> T,
+    {
+        let max_coord: usize = max_coord.try_into().unwrap();
+        table.resize(max_coord * 18, default_value);
+        let mut cube: Cubie = Cubie::default();
+        for coord in 0..max_coord {
+            set_coord_fn(&mut cube, coord.try_into().unwrap());
+            let mut move_idx = 0;
+            for move_action in Move::ALL_UNIQUE {
+                for _ in 0..3 {
+                    cube = cube.apply_move(move_action);
+                    Self::set_next_coord(table, coord, move_idx, get_coord_fn(&cube));
+                    move_idx += 1;
+                }
+                cube = cube.apply_move(move_action);
+            }
+        }
+    }
+
+    fn generate_move_table_u16<FSet, FGet>(
         table: &mut Vec<u16>,
         max_coord: u16,
         mut set_coord_fn: FSet,
