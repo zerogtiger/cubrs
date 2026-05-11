@@ -52,7 +52,7 @@ impl SymMoveTable {
                             move_action as u8,
                         ) as usize] = result_move_action as u8;
                     }
-                    Err(_) =>  {
+                    Err(_) => {
                         println!("{sym_idx}, {move_action:?} failed");
                         panic!("Resulting move not primitive")
                     }
@@ -91,15 +91,14 @@ impl SymMultTable {
             for sym_idx_2 in 0..SYM_COUNT {
                 match SymMove::sym_action_to_sym_index(
                     &(SymMove::sym_index_to_cubie_move(sym_idx_1)
-                    * SymMove::sym_index_to_cubie_move(sym_idx_2))
+                        * SymMove::sym_index_to_cubie_move(sym_idx_2)),
                 ) {
                     Ok(result_sym_move) => {
-                        self.sym_mult_table[Self::encode_sym_idx_sym_idx(
-                            sym_idx_1,
-                            sym_idx_2
-                        ) as usize] = result_sym_move;
+                        self.sym_mult_table
+                            [Self::encode_sym_idx_sym_idx(sym_idx_1, sym_idx_2) as usize] =
+                            result_sym_move;
                     }
-                    Err(_) => panic!("Resulting multiplication not primitive")
+                    Err(_) => panic!("Resulting multiplication not primitive"),
                 }
             }
         }
@@ -159,8 +158,10 @@ impl FlipUDSliceTable {
                         * cube
                         * SymMove::sym_index_to_cubie_move(sym_moves);
 
-                    let new_raw_coord =
-                        Self::encode_raw_coord(cube.edge_orientation_coord(), cube.ud_slice_coord());
+                    let new_raw_coord = Self::encode_raw_coord(
+                        cube.edge_orientation_coord(),
+                        cube.ud_slice_coord(),
+                    );
                     raw_coord_used[new_raw_coord] = true;
                 }
                 self.class_idx_to_rep_encoded_raw_coord[flip_ud_coord as usize] = min_coord;
@@ -180,7 +181,8 @@ impl FlipUDSliceTable {
                 * cube
                 * SymMove::sym_index_to_inverse_cubie_move(i);
             match self.rep_encoded_raw_coord_to_class_idx.get(
-                &(Self::encode_raw_coord(cube.edge_orientation_coord(), cube.ud_slice_coord()) as u32),
+                &(Self::encode_raw_coord(cube.edge_orientation_coord(), cube.ud_slice_coord())
+                    as u32),
             ) {
                 None => continue,
                 Some(class_idx) => return (*class_idx, i),
@@ -298,14 +300,20 @@ impl MoveTable {
         flip_ud_slice_sym_idx: u8,
         move_action: u8,
     ) -> (u16, u8) {
-        let symmetry_move_action = self.sym_move_table.get_sym_move(flip_ud_slice_sym_idx, move_action);
+        let symmetry_move_action = self
+            .sym_move_table
+            .get_sym_move(flip_ud_slice_sym_idx, move_action);
         let sym_coord = Self::get_next_coord(
             &self.flip_ud_slice_table,
             flip_ud_slice_class_idx as usize,
             symmetry_move_action,
         );
         let (result_class_idx, result_sym_idx) = FlipUDSliceTable::decode_sym_coord(sym_coord);
-        (result_class_idx, self.sym_mult_table.get_sym_mult(result_sym_idx, flip_ud_slice_sym_idx))
+        (
+            result_class_idx,
+            self.sym_mult_table
+                .get_sym_mult(result_sym_idx, flip_ud_slice_sym_idx),
+        )
     }
 
     pub fn get_next_corner_perm_coord(&self, corner_perm_coord: u32, move_action: u8) -> u32 {
@@ -444,7 +452,8 @@ impl TwistConjugateTable {
     }
 
     pub fn get_twist_conjugate(&self, corner_orient_coord: u16, sym_idx: u8) -> u16 {
-        self.twist_conjugate[Self::encode_corner_orient_sym_idx(corner_orient_coord, sym_idx) as usize]
+        self.twist_conjugate
+            [Self::encode_corner_orient_sym_idx(corner_orient_coord, sym_idx) as usize]
     }
 
     fn encode_corner_orient_sym_idx(corner_orient_coord: u16, sym_idx: u8) -> u16 {
@@ -480,7 +489,10 @@ pub struct PruneTable {
 }
 
 impl PruneTable {
-    pub fn load_or_generate(move_table: &MoveTable, twist_conjugate_table: Arc<TwistConjugateTable>) -> Self {
+    pub fn load_or_generate(
+        move_table: &MoveTable,
+        twist_conjugate_table: Arc<TwistConjugateTable>,
+    ) -> Self {
         let mut ret = Self {
             phase1_table: Default::default(),
             phase2_table: Default::default(),
@@ -496,7 +508,9 @@ impl PruneTable {
         flip_ud_slice_class_idx: u16,
         flip_ud_slice_sym_idx: u8,
     ) -> u8 {
-        let result_corner_orient_coord = self.twist_conjugate_table.get_twist_conjugate(corner_orient_coord, flip_ud_slice_sym_idx);
+        let result_corner_orient_coord = self
+            .twist_conjugate_table
+            .get_twist_conjugate(corner_orient_coord, flip_ud_slice_sym_idx);
         self.get_phase1_table(result_corner_orient_coord, flip_ud_slice_class_idx)
     }
 

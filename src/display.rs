@@ -1,4 +1,4 @@
-use crate::{facelet::{Color, Facelet}};
+use crate::facelet::{Color, Facelet};
 
 pub struct CubeDisplay {
     colors: [char; 6], // Color of U, R, F, D, L, B
@@ -24,29 +24,47 @@ impl CubeDisplay {
         for i in 0..3 {
             print!(". . . ");
             for j in 0..3 {
-                print!("{} ", self.realize_color(facelet.get_face(&Color::U(i * 3 + j))));
+                print!(
+                    "{} ",
+                    self.realize_color(facelet.get_face(&Color::U(i * 3 + j)))
+                );
             }
             println!();
         }
         for i in 0..3 {
             for j in 0..3 {
-                print!("{} ", self.realize_color(facelet.get_face(&Color::L(i * 3 + j))));
+                print!(
+                    "{} ",
+                    self.realize_color(facelet.get_face(&Color::L(i * 3 + j)))
+                );
             }
             for j in 0..3 {
-                print!("{} ", self.realize_color(facelet.get_face(&Color::F(i * 3 + j))));
+                print!(
+                    "{} ",
+                    self.realize_color(facelet.get_face(&Color::F(i * 3 + j)))
+                );
             }
             for j in 0..3 {
-                print!("{} ", self.realize_color(facelet.get_face(&Color::R(i * 3 + j))));
+                print!(
+                    "{} ",
+                    self.realize_color(facelet.get_face(&Color::R(i * 3 + j)))
+                );
             }
             for j in 0..3 {
-                print!("{} ", self.realize_color(facelet.get_face(&Color::B(i * 3 + j))));
+                print!(
+                    "{} ",
+                    self.realize_color(facelet.get_face(&Color::B(i * 3 + j)))
+                );
             }
             println!();
         }
         for i in 0..3 {
             print!(". . . ");
             for j in 0..3 {
-                print!("{} ", self.realize_color(facelet.get_face(&Color::D(i * 3 + j))));
+                print!(
+                    "{} ",
+                    self.realize_color(facelet.get_face(&Color::D(i * 3 + j)))
+                );
             }
             println!();
         }

@@ -1,9 +1,9 @@
-use core::iter::Iterator;
-use std::default;
-use core::{assert, todo};
-use std::ops::Mul;
-use crate::moves::{Move::*, B_MOVE, D_MOVE, F_MOVE, L_MOVE, R_MOVE, U_MOVE};
 use crate::moves::Move;
+use crate::moves::{B_MOVE, D_MOVE, F_MOVE, L_MOVE, Move::*, R_MOVE, U_MOVE};
+use core::iter::Iterator;
+use core::{assert, todo};
+use std::default;
+use std::ops::Mul;
 
 pub const FACTORIAL: [u32; 13] = [
     1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600,
@@ -167,7 +167,7 @@ impl Cubie {
     }
 
     pub fn apply_moves(&self, moves: &[Move]) -> Self {
-        moves.iter().fold(*self, |acc, &m|acc.apply_move(m))
+        moves.iter().fold(*self, |acc, &m| acc.apply_move(m))
     }
 
     pub fn corner_orientation_coord(&self) -> u16 {
@@ -292,19 +292,19 @@ impl Cubie {
     pub fn set_corner_orientation_coord(&mut self, mut corner_orient_coord: u16) {
         let mut accum = 0;
         for idx in (0..7).rev() {
-            self.corner_orientation[idx] = (corner_orient_coord%3) as u8;
+            self.corner_orientation[idx] = (corner_orient_coord % 3) as u8;
             corner_orient_coord /= 3;
-            accum = (accum + self.corner_orientation[idx])%3;
+            accum = (accum + self.corner_orientation[idx]) % 3;
         }
-        self.corner_orientation[7] = (3 - accum)%3;
+        self.corner_orientation[7] = (3 - accum) % 3;
     }
 
     pub fn set_edge_orientation_coord(&mut self, mut edge_orient_coord: u16) {
         let mut accum = 0;
         for idx in (0..11).rev() {
-            self.edge_orientation[idx] = (edge_orient_coord%2) as u8;
+            self.edge_orientation[idx] = (edge_orient_coord % 2) as u8;
             edge_orient_coord /= 2;
-            accum = (accum + self.edge_orientation[idx])%2;
+            accum = (accum + self.edge_orientation[idx]) % 2;
         }
         self.edge_orientation[11] = accum;
     }
@@ -312,7 +312,8 @@ impl Cubie {
     pub fn set_corner_permutation_coord(&mut self, mut corner_perm_coord: u32) {
         let mut items = vec![0, 1, 2, 3, 4, 5, 6, 7];
         for idx in (0..8).rev() {
-            self.corner_permutation[idx] = items.remove(idx - (corner_perm_coord/FACTORIAL[idx]) as usize);
+            self.corner_permutation[idx] =
+                items.remove(idx - (corner_perm_coord / FACTORIAL[idx]) as usize);
             corner_perm_coord %= FACTORIAL[idx];
         }
     }
@@ -320,7 +321,8 @@ impl Cubie {
     pub fn set_edge_permutation_coord(&mut self, mut edge_perm_coord: u32) {
         let mut items = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
         for idx in (0..12).rev() {
-            self.edge_permutation[idx] = items.remove(idx - (edge_perm_coord/FACTORIAL[idx]) as usize);
+            self.edge_permutation[idx] =
+                items.remove(idx - (edge_perm_coord / FACTORIAL[idx]) as usize);
             edge_perm_coord %= FACTORIAL[idx];
         }
     }
@@ -335,7 +337,7 @@ impl Cubie {
                     self.edge_permutation[n as usize] = items.remove(0);
                 }
                 false => {
-                    k-=1;
+                    k -= 1;
                     self.edge_permutation[n as usize] = items.remove(items.len() - 1);
                 }
             }
@@ -346,7 +348,8 @@ impl Cubie {
         // TODO: assert cube in G1
         let mut items = vec![0, 1, 2, 3, 4, 5, 6, 7];
         for idx in (0..8).rev() {
-            self.edge_permutation[idx] = items.remove(idx - (phase2_edge_perm_coord/FACTORIAL[idx]) as usize);
+            self.edge_permutation[idx] =
+                items.remove(idx - (phase2_edge_perm_coord / FACTORIAL[idx]) as usize);
             phase2_edge_perm_coord %= FACTORIAL[idx];
         }
     }
@@ -355,11 +358,11 @@ impl Cubie {
         // TODO: assert cube in G1
         let mut items = vec![8, 9, 10, 11];
         for idx in (0..4).rev() {
-            self.edge_permutation[8 + idx] = items.remove(idx - (phase2_ud_slice_coord as u32/FACTORIAL[idx]) as usize);
+            self.edge_permutation[8 + idx] =
+                items.remove(idx - (phase2_ud_slice_coord as u32 / FACTORIAL[idx]) as usize);
             phase2_ud_slice_coord %= FACTORIAL[idx] as u16;
         }
     }
-
 }
 
 impl Default for Cubie {
@@ -385,29 +388,25 @@ impl Mul for Cubie {
 
             let ori_a = self.corner_orientation[rhs.corner_permutation[i] as usize];
             let ori_b = rhs.corner_orientation[i];
-            ret.corner_orientation[i] = 
-                if ori_a < 3 && ori_b < 3 {
-                    match ori_a + ori_b >= 3 {
-                        true => ori_a + ori_b - 3,
-                        false => ori_a + ori_b,
-                    }
+            ret.corner_orientation[i] = if ori_a < 3 && ori_b < 3 {
+                match ori_a + ori_b >= 3 {
+                    true => ori_a + ori_b - 3,
+                    false => ori_a + ori_b,
                 }
-            else if ori_a < 3 && ori_b >= 3 {
+            } else if ori_a < 3 && ori_b >= 3 {
                 match ori_a + ori_b >= 6 {
                     true => ori_a + ori_b - 3,
                     false => ori_a + ori_b,
                 }
-            }
-            else if ori_a >= 3 && ori_b < 3 {
+            } else if ori_a >= 3 && ori_b < 3 {
                 match ori_a - ori_b < 3 {
                     true => 3 + ori_a - ori_b,
                     false => ori_a - ori_b,
                 }
-            }
-            else {
+            } else {
                 match (ori_a as i8 - ori_b as i8) < 0 {
                     true => 3 + ori_a - ori_b,
-                    false => ori_a - ori_b
+                    false => ori_a - ori_b,
                 }
             }
         }
@@ -420,4 +419,3 @@ impl Mul for Cubie {
         ret
     }
 }
-

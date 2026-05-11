@@ -1,4 +1,4 @@
-use core::{iter::{zip, Iterator}};
+use core::iter::{Iterator, zip};
 
 use Color::*;
 
@@ -62,31 +62,85 @@ impl Facelet {
     pub fn new() -> Self {
         return Self {
             faces: [
-                U(0), U(1), U(2), U(3), U(4), U(5), U(6), U(7), U(8),
-                R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), R(8),
-                F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7), F(8),
-                D(0), D(1), D(2), D(3), D(4), D(5), D(6), D(7), D(8),
-                L(0), L(1), L(2), L(3), L(4), L(5), L(6), L(7), L(8),
-                B(0), B(1), B(2), B(3), B(4), B(5), B(6), B(7), B(8),
+                U(0),
+                U(1),
+                U(2),
+                U(3),
+                U(4),
+                U(5),
+                U(6),
+                U(7),
+                U(8),
+                R(0),
+                R(1),
+                R(2),
+                R(3),
+                R(4),
+                R(5),
+                R(6),
+                R(7),
+                R(8),
+                F(0),
+                F(1),
+                F(2),
+                F(3),
+                F(4),
+                F(5),
+                F(6),
+                F(7),
+                F(8),
+                D(0),
+                D(1),
+                D(2),
+                D(3),
+                D(4),
+                D(5),
+                D(6),
+                D(7),
+                D(8),
+                L(0),
+                L(1),
+                L(2),
+                L(3),
+                L(4),
+                L(5),
+                L(6),
+                L(7),
+                L(8),
+                B(0),
+                B(1),
+                B(2),
+                B(3),
+                B(4),
+                B(5),
+                B(6),
+                B(7),
+                B(8),
             ],
         };
     }
 
     pub fn from_cubie(cubie: &Cubie) -> Self {
         let mut ret = Self::new();
-        for (original_idx, (corner, orientation)) in zip(cubie.corner_permutation, cubie.corner_orientation).enumerate() {
+        for (original_idx, (corner, orientation)) in
+            zip(cubie.corner_permutation, cubie.corner_orientation).enumerate()
+        {
             for (face_idx, color) in CORNER_FACES[original_idx].iter().enumerate() {
-                ret.faces[u8::from(*color) as usize] = CORNER_FACES[corner as usize][(face_idx + 3 - orientation as usize)%3];
+                ret.faces[u8::from(*color) as usize] =
+                    CORNER_FACES[corner as usize][(face_idx + 3 - orientation as usize) % 3];
             }
         }
-        for (original_idx, (edge, orientation)) in zip(cubie.edge_permutation, cubie.edge_orientation).enumerate() {
+        for (original_idx, (edge, orientation)) in
+            zip(cubie.edge_permutation, cubie.edge_orientation).enumerate()
+        {
             for (face_idx, color) in EDGE_FACES[original_idx].iter().enumerate() {
-                ret.faces[u8::from(*color) as usize] = EDGE_FACES[edge as usize][(face_idx + orientation as usize)%2];
+                ret.faces[u8::from(*color) as usize] =
+                    EDGE_FACES[edge as usize][(face_idx + orientation as usize) % 2];
             }
         }
         ret
     }
-    
+
     pub fn get_face(&self, color: &Color) -> Color {
         self.faces[u8::from(*color) as usize]
     }
