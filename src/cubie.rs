@@ -18,6 +18,9 @@ pub const PHASE2_EDGE_PERMUTATION_COUNT: u32 = 40320;
 pub const PHASE2_UD_SLICE_COUNT: u16 = 24;
 pub const FLIP_UD_SLICE_COUNT: u16 = 64430;
 
+pub const SYM_COUNT: u8 = 16;
+pub const MOVE_COUNT: u8 = 18;
+
 pub fn binomial_coefficient(n: i8, k: i8) -> u32 {
     assert!(n <= 12);
     assert!(k <= 12);
@@ -160,27 +163,7 @@ impl Cubie {
     }
 
     pub fn apply_move(self, move_action: Move) -> Self {
-        let decomposed = match move_action {
-            U => U_MOVE,
-            U2 => U_MOVE * U_MOVE,
-            U3 => U_MOVE * U_MOVE * U_MOVE,
-            D => D_MOVE,
-            D2 => D_MOVE * D_MOVE,
-            D3 => D_MOVE * D_MOVE * D_MOVE,
-            F => F_MOVE,
-            F2 => F_MOVE * F_MOVE,
-            F3 => F_MOVE * F_MOVE * F_MOVE,
-            B => B_MOVE,
-            B2 => B_MOVE * B_MOVE,
-            B3 => B_MOVE * B_MOVE * B_MOVE,
-            L => L_MOVE,
-            L2 => L_MOVE * L_MOVE,
-            L3 => L_MOVE * L_MOVE * L_MOVE,
-            R => R_MOVE,
-            R2 => R_MOVE * R_MOVE,
-            R3 => R_MOVE * R_MOVE * R_MOVE,
-        };
-        self * decomposed
+        self * Move::move_action_to_move_cubie(move_action)
     }
 
     pub fn apply_moves(&self, moves: &[Move]) -> Self {

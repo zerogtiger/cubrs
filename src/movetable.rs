@@ -12,6 +12,47 @@ use crate::{
     moves::{Move, SymMove},
 };
 
+// S(i) * M * S(i)^-1, where M: move; i: sym index
+pub struct SymMoveTable {
+    sym_move_table: Vec<u8>,
+}
+
+impl SymMoveTable {
+    pub fn load_or_generate() -> Self {
+        let mut ret = Self {
+            sym_move_table: Vec::new(),
+        };
+        ret.generate_tables();
+        ret
+    }
+
+    fn encode_sym_idx_move_action(sym_idx: u8, move_action: u8) -> u16 {
+        sym_idx as u16 * 18 + move_action as u16
+    }
+
+    fn generate_tables(&mut self) {
+        self.sym_move_table
+            .resize(SYM_COUNT as usize * MOVE_COUNT as usize, 0);
+        for sym_idx in 0..SYM_COUNT {
+            for move_action in Move::ALL {
+                match Move::move_cubie_to_move_action(
+                    &(SymMove::sym_index_to_cubie_move(sym_idx)
+                        * Move::move_action_to_move_cubie(move_action)
+                        * SymMove::sym_index_to_inverse_cubie_move(sym_idx)),
+                ) {
+                    Ok(result_move_action) => {
+                        self.sym_move_table[Self::encode_sym_idx_move_action(
+                            sym_idx,
+                            move_action as u8,
+                        ) as usize] = result_move_action as u8;
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+}
+
 pub struct FlipUDSliceTable {
     class_idx_to_rep_encoded_raw_coord: Vec<u32>,
     rep_encoded_raw_coord_to_class_idx: HashMap<u32, u16>,

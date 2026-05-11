@@ -44,6 +44,38 @@ impl Move {
     pub const ALL_UNIQUE: [Move; 6] = [
         U, D, F, B, L, R
     ];
+
+    pub fn move_action_to_move_cubie(move_action: Move) -> Cubie {
+        match move_action as Move {
+            U => U_MOVE,
+            U2 => U_MOVE * U_MOVE,
+            U3 => U_MOVE * U_MOVE * U_MOVE,
+            D => D_MOVE,
+            D2 => D_MOVE * D_MOVE,
+            D3 => D_MOVE * D_MOVE * D_MOVE,
+            F => F_MOVE,
+            F2 => F_MOVE * F_MOVE,
+            F3 => F_MOVE * F_MOVE * F_MOVE,
+            B => B_MOVE,
+            B2 => B_MOVE * B_MOVE,
+            B3 => B_MOVE * B_MOVE * B_MOVE,
+            L => L_MOVE,
+            L2 => L_MOVE * L_MOVE,
+            L3 => L_MOVE * L_MOVE * L_MOVE,
+            R => R_MOVE,
+            R2 => R_MOVE * R_MOVE,
+            R3 => R_MOVE * R_MOVE * R_MOVE,
+        }
+    }
+    
+    pub fn move_cubie_to_move_action(move_cubie: &Cubie) -> Result<Move, ()> {
+        for move_action in Self::ALL {
+            if Self::move_action_to_move_cubie(move_action) == *move_cubie {
+                return Ok(move_action);
+            }
+        }
+        Err(())
+    }
 }
 
 pub const U_MOVE: Cubie = Cubie {
