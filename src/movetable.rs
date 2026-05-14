@@ -514,17 +514,20 @@ pub struct PruneTable {
     // 2768 x 40320 = 111,605,760
     phase2_table: Vec<u8>,
     twist_conjugate_table: Arc<TwistConjugateTable>,
+    flip_ud_slice_table: Arc<FlipUDSliceTable>,
 }
 
 impl PruneTable {
     pub fn load_or_generate(
         move_table: &MoveTable,
         twist_conjugate_table: Arc<TwistConjugateTable>,
+        flip_ud_slice_table: Arc<FlipUDSliceTable>,
     ) -> Self {
         let mut ret = Self {
-            phase1_table: Default::default(),
-            phase2_table: Default::default(),
+            phase1_table: Vec::new(),
+            phase2_table: Vec::new(),
             twist_conjugate_table,
+            flip_ud_slice_table,
         };
         ret.generate_phase1_prune_table(move_table);
         ret
@@ -574,31 +577,61 @@ impl PruneTable {
         // corner orient, flip ud coord
         let mut q: VecDeque<(u16, u16)> = VecDeque::new();
         q.push_back((0, 0));
+
+        let mut distribution = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        let mut max_depth = 0;
+
         let mut curr = 0;
         let mut old = 0;
         while !q.is_empty() {
             curr += 1;
-            if (curr / 1_000_000 != old) {
+            if curr / 1_000_000 != old {
                 old += 1;
                 println!("{old}");
             }
-            let top = q.pop_front().unwrap();
-            let curr_depth = self.get_phase1_table(top.0, top.1);
+            let (curr_corner_orient, curr_flip_ud_class_idx) = q.pop_front().unwrap();
+            let curr_depth = self.get_phase1_table(curr_corner_orient, curr_flip_ud_class_idx);
+            max_depth = max(max_depth, curr_depth);
             for move_action in Move::ALL {
+                let (next_flip_ud_class_idx, next_flip_ud_sym_idx) = move_table
+                    .get_next_flip_ud_slice_sym_coord(curr_flip_ud_class_idx, 0, move_action as u8);
+
                 let next: (u16, u16) = (
-                    move_table.get_next_corner_orient_coord(top.0, move_action as u8),
-                    move_table
-                        .get_next_flip_ud_slice_sym_coord(top.1, 0, move_action as u8)
-                        .0, // class idx
+                    self.twist_conjugate_table.get_twist_conjugate(
+                        move_table
+                            .get_next_corner_orient_coord(curr_corner_orient, move_action as u8),
+                        next_flip_ud_sym_idx,
+                    ),
+                    next_flip_ud_class_idx,
                 );
                 match self.get_phase1_table(next.0, next.1) == u8::MAX {
                     true => {
                         q.push_back(next);
+                        distribution[curr_depth as usize + 1] += 1;
                         self.set_phase1_table(next.0, next.1, curr_depth + 1);
+
+                        let sym_state = self.flip_ud_slice_table.get_sym_states(next.1);
+                        if sym_state != 1 {
+                            let mut sym = sym_state >> 1;
+                            for sym_idx in 1..16 {
+                                if sym & 1 == 1 {
+                                    let alt_twist = self
+                                        .twist_conjugate_table
+                                        .get_twist_conjugate(next.0, sym_idx);
+                                    if self.get_phase1_table(alt_twist, next.1) == u8::MAX {
+                                        self.set_phase1_table(alt_twist, next.1, curr_depth + 1);
+                                        distribution[curr_depth as usize + 1] += 1;
+                                    }
+                                }
+                                sym >>= 1;
+                            }
+                        }
                     }
                     false => {}
                 }
             }
         }
+        println!("Max depth: {max_depth}");
+        println!("Distribution: {distribution:?}");
     }
 }
