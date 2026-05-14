@@ -174,7 +174,7 @@ impl Cubie {
         let mut ret: u16 = 0;
         if let Some((last, rest)) = self.corner_orientation.split_last() {
             for &orientation in rest {
-                ret = ret * 3 + orientation as u16;
+                ret = ret * 3 + (orientation % 3) as u16;
             }
         }
         ret

@@ -1,5 +1,6 @@
 use core::{
     assert,
+    cmp::max,
     convert::{Into, TryFrom},
     default,
     fmt::Debug,
@@ -108,6 +109,7 @@ impl SymMultTable {
 pub struct FlipUDSliceTable {
     class_idx_to_rep_encoded_raw_coord: Vec<u32>,
     rep_encoded_raw_coord_to_class_idx: HashMap<u32, u16>,
+    class_idx_to_sym_state: Vec<u16>,
 }
 
 impl FlipUDSliceTable {
@@ -116,6 +118,7 @@ impl FlipUDSliceTable {
         let mut ret = Self {
             class_idx_to_rep_encoded_raw_coord: Vec::new(),
             rep_encoded_raw_coord_to_class_idx: HashMap::new(),
+            class_idx_to_sym_state: Vec::new(),
         };
         ret.generate_tables();
         ret
@@ -134,10 +137,20 @@ impl FlipUDSliceTable {
         )
     }
 
+    fn set_sym_state(&mut self, class_idx: u16, index: usize) {
+        self.class_idx_to_sym_state[class_idx as usize] |= 1 << index;
+    }
+
+    pub fn get_sym_states(&self, class_idx: u16) -> u16 {
+        self.class_idx_to_sym_state[class_idx as usize]
+    }
+
     fn generate_tables(&mut self) {
         let mut flip_ud_coord: u16 = 0;
         self.class_idx_to_rep_encoded_raw_coord
             .resize(FLIP_UD_SLICE_COUNT as usize, u32::MAX);
+        self.class_idx_to_sym_state
+            .resize(FLIP_UD_SLICE_COUNT as usize, 0);
 
         let mut raw_coord_used: Vec<bool> =
             vec![false; EDGE_ORIENTATION_COUNT as usize * UD_SLICE_COUNT as usize];
@@ -163,6 +176,9 @@ impl FlipUDSliceTable {
                         cube.ud_slice_coord(),
                     );
                     raw_coord_used[new_raw_coord] = true;
+                    if new_raw_coord as u32 == min_coord {
+                        self.set_sym_state(flip_ud_coord, sym_moves as usize);
+                    }
                 }
                 self.class_idx_to_rep_encoded_raw_coord[flip_ud_coord as usize] = min_coord;
                 self.rep_encoded_raw_coord_to_class_idx
@@ -203,6 +219,18 @@ impl FlipUDSliceTable {
 
     pub fn class_idx_to_raw_coord(&self, class_idx: u16) -> (u16, u16) {
         Self::decode_raw_coord(self.class_idx_to_rep_encoded_raw_coord[class_idx as usize])
+    }
+
+    // edge orient, ud slice
+    pub fn sym_coord_to_raw_coord(&self, class_idx: u16, sym_idx: u8) -> (u16, u16) {
+        let (rep_eo, rep_uds) = self.class_idx_to_raw_coord(class_idx);
+        let mut cube: Cubie = Cubie::default();
+        cube.set_edge_orientation_coord(rep_eo);
+        cube.set_ud_slice_coord(rep_uds);
+        cube = SymMove::sym_index_to_inverse_cubie_move(sym_idx)
+            * cube
+            * SymMove::sym_index_to_cubie_move(sym_idx);
+        (cube.edge_orientation_coord(), cube.ud_slice_coord())
     }
 }
 
