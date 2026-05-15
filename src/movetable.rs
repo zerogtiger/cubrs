@@ -420,31 +420,34 @@ pub struct MoveTable {
     sym_move_table: Arc<SymMoveTable>,
     sym_mult_table: Arc<SymMultTable>,
     // phase 2
-    pub corner_perm_table: Vec<u32>,
-    pub phase2_edge_perm_table: Vec<u32>,
-    pub phase2_ud_slice_table: Vec<u16>,
+    pub corner_perm_sym_table: Vec<u32>,
+    pub phase2_edge_perm_table: Vec<u16>,
+    pub phase2_ud_slice_table: Vec<u8>,
 }
 
 impl MoveTable {
     pub fn load_or_generate(
         flip_ud_slice_table: &FlipUDSliceTable,
+        corner_perm_sym_table: &CornerPermSymTable,
         sym_move_table: Arc<SymMoveTable>,
         sym_mult_table: Arc<SymMultTable>,
     ) -> Self {
         // let file = File::create("movetable/.txt");
         if std::path::Path::new("tables/move_corner_orient.bin").exists()
             && std::path::Path::new("tables/move_flip_ud_slice.bin").exists()
-            && std::path::Path::new("tables/move_corner_perm.bin").exists()
+            && std::path::Path::new("tables/move_corner_perm_sym.bin").exists()
+            && std::path::Path::new("tables/move_phase2_edge_perm.bin").exists()
+            && std::path::Path::new("tables/move_phase2_ud_slice.bin").exists()
         {
             return Self {
                 corner_orient_table: load_vec("tables/move_corner_orient.bin"),
                 flip_ud_slice_table: load_vec("tables/move_flip_ud_slice.bin"),
                 sym_move_table,
                 sym_mult_table,
-                corner_perm_table: load_vec("tables/move_corner_perm.bin"),
-                phase2_edge_perm_table: Vec::new(),
-                phase2_ud_slice_table: Vec::new(),
-            }
+                corner_perm_sym_table: load_vec("tables/move_corner_perm_sym.bin"),
+                phase2_edge_perm_table: load_vec("tables/move_phase2_edge_perm.bin"),
+                phase2_ud_slice_table: load_vec("tables/move_phase2_ud_slice.bin"),
+            };
         }
         let mut table: Self = Self {
             // phase 1
@@ -453,7 +456,7 @@ impl MoveTable {
             sym_move_table,
             sym_mult_table,
             // phase 2
-            corner_perm_table: Default::default(),
+            corner_perm_sym_table: Default::default(),
             phase2_edge_perm_table: Default::default(),
             phase2_ud_slice_table: Default::default(),
         };
@@ -485,23 +488,47 @@ impl MoveTable {
 
         // phase 2
         Self::generate_move_table(
-            &mut table.corner_perm_table,
+            &mut table.corner_perm_sym_table,
             0,
-            CORNER_PERMUTATION_COUNT,
-            |cube, coord| cube.set_corner_permutation_coord(coord),
-            |cube| cube.corner_permutation_coord(),
+            CORNER_PERMUTATION_SYM_COUNT,
+            |cube, corner_perm_sym_coord| {
+                let corner_perm_coord =
+                    corner_perm_sym_table.class_idx_to_raw_coord(corner_perm_sym_coord);
+                cube.set_corner_permutation_coord(corner_perm_coord);
+            },
+            |cube| {
+                let (class_idx, sym_idx) =
+                    corner_perm_sym_table.raw_coord_to_sym_coord(cube.corner_permutation_coord());
+                CornerPermSymTable::encode_sym_coord(class_idx, sym_idx)
+            },
         );
-        Self::generate_move_table_u32(
+        Self::generate_move_table(
             &mut table.phase2_edge_perm_table,
+            0,
             PHASE2_EDGE_PERMUTATION_COUNT,
             |cube, coord| cube.set_phase2_edge_permutation_coord(coord),
             |cube| cube.phase2_edge_permutation_coord(),
         );
-        Self::generate_move_table_u16(
+        Self::generate_move_table(
             &mut table.phase2_ud_slice_table,
+            0,
             PHASE2_UD_SLICE_COUNT,
             |cube, coord| cube.set_phase2_ud_slice_coord(coord),
             |cube| cube.phase2_ud_slice_coord(),
+        );
+        save_vec("tables/move_corner_orient.bin", &table.corner_orient_table);
+        save_vec("tables/move_flip_ud_slice.bin", &table.flip_ud_slice_table);
+        save_vec(
+            "tables/move_corner_perm_sym.bin",
+            &table.corner_perm_sym_table,
+        );
+        save_vec(
+            "tables/move_phase2_edge_perm.bin",
+            &table.phase2_edge_perm_table,
+        );
+        save_vec(
+            "tables/move_phase2_ud_slice.bin",
+            &table.phase2_ud_slice_table,
         );
         table
     }
@@ -537,29 +564,44 @@ impl MoveTable {
         )
     }
 
-    pub fn get_next_corner_perm_coord(&self, corner_perm_coord: u32, move_action: u8) -> u32 {
-        Self::get_next_coord(
-            &self.corner_perm_table,
-            corner_perm_coord as usize,
-            move_action,
+    pub fn get_next_corner_perm_sym_coord(
+        &self,
+        corner_perm_sym_coord: u16,
+        sym_idx: u8,
+        move_action: u8,
+    ) -> (u16, u8) {
+        let sym_move = self.sym_move_table.get_sym_move(sym_idx, move_action);
+        let sym_coord = Self::get_next_coord(
+            &self.corner_perm_sym_table,
+            corner_perm_sym_coord as usize,
+            sym_move,
+        );
+        let (corner_perm_sym_class_idx, corner_perm_sym_idx) =
+            CornerPermSymTable::decode_sym_coord(sym_coord);
+        (
+            corner_perm_sym_class_idx,
+            self.sym_mult_table
+                .get_sym_mult(corner_perm_sym_idx, sym_idx),
         )
     }
+
     pub fn get_next_phase2_edge_perm_coord(
         &self,
-        phase2_edge_perm_coord: u32,
+        phase2_edge_perm_coord: u16,
         move_action: u8,
-    ) -> u32 {
+    ) -> u16 {
         Self::get_next_coord(
             &self.phase2_edge_perm_table,
             phase2_edge_perm_coord as usize,
             move_action,
         )
     }
+
     pub fn get_next_phase2_ud_slice_coord(
         &self,
         phase2_ud_slice_coord: u16,
         move_action: u8,
-    ) -> u16 {
+    ) -> u8 {
         Self::get_next_coord(
             &self.phase2_ud_slice_table,
             phase2_ud_slice_coord as usize,
@@ -605,58 +647,6 @@ impl MoveTable {
             }
         }
     }
-
-    fn generate_move_table_u16<FSet, FGet>(
-        table: &mut Vec<u16>,
-        max_coord: u16,
-        mut set_coord_fn: FSet,
-        get_coord_fn: FGet,
-    ) where
-        FSet: FnMut(&mut Cubie, u16),
-        FGet: Fn(&Cubie) -> u16,
-    {
-        table.resize(max_coord as usize * 18, 0);
-        let mut cube: Cubie = Cubie::default();
-        for coord in 0..max_coord {
-            set_coord_fn(&mut cube, coord);
-            let mut move_idx = 0;
-            for move_action in Move::ALL_UNIQUE {
-                for it in 0..4 {
-                    cube = cube.apply_move(move_action);
-                    if it != 3 {
-                        Self::set_next_coord(table, coord as usize, move_idx, get_coord_fn(&cube));
-                        move_idx += 1;
-                    }
-                }
-            }
-        }
-    }
-
-    fn generate_move_table_u32<FSet, FGet>(
-        table: &mut Vec<u32>,
-        max_coord: u32,
-        mut set_coord_fn: FSet,
-        get_coord_fn: FGet,
-    ) where
-        FSet: FnMut(&mut Cubie, u32),
-        FGet: Fn(&Cubie) -> u32,
-    {
-        table.resize(max_coord as usize * 18, 0);
-        let mut cube: Cubie = Cubie::default();
-        for coord in 0..max_coord {
-            set_coord_fn(&mut cube, coord);
-            let mut move_idx = 0;
-            for move_action in Move::ALL_UNIQUE {
-                for it in 0..4 {
-                    cube = cube.apply_move(move_action);
-                    if it != 3 {
-                        Self::set_next_coord(table, coord as usize, move_idx, get_coord_fn(&cube));
-                        move_idx += 1;
-                    }
-                }
-            }
-        }
-    }
 }
 
 pub struct TwistConjugateTable {
@@ -668,7 +658,7 @@ impl TwistConjugateTable {
         if std::path::Path::new("tables/twist_conjugate.bin").exists() {
             return Self {
                 twist_conjugate: load_vec("tables/twist_conjugate.bin"),
-            }
+            };
         }
         let mut ret = Self {
             twist_conjugate: Default::default(),
