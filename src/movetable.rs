@@ -705,6 +705,58 @@ impl TwistConjugateTable {
     }
 }
 
+pub struct Edge8PosConjugateTable {
+    edge8_pos_conjugate_table: Vec<u16>,
+}
+
+impl Edge8PosConjugateTable {
+    pub fn load_or_generate() -> Self {
+        if std::path::Path::new("tables/edge8_pos_conjugate.bin").exists() {
+            return Self {
+                edge8_pos_conjugate_table: load_vec("tables/edge8_pos_conjugate.bin"),
+            };
+        }
+        let mut ret = Self {
+            edge8_pos_conjugate_table: Vec::new(),
+        };
+        ret.generate_tables();
+        save_vec(
+            "tables/edge8_pos_conjugate.bin",
+            &ret.edge8_pos_conjugate_table,
+        );
+        ret
+    }
+
+    pub fn get_edge8_pos_conjugate(&self, phase2_edge_perm_coord: u16, sym_idx: u8) -> u16 {
+        self.edge8_pos_conjugate_table
+            [Self::encode_phase2_edge_perm_sym_idx(phase2_edge_perm_coord, sym_idx) as usize]
+    }
+
+    fn encode_phase2_edge_perm_sym_idx(phase2_edge_perm_coord: u16, sym_idx: u8) -> u32 {
+        phase2_edge_perm_coord as u32 * SYM_COUNT as u32 + sym_idx as u32
+    }
+
+    fn generate_tables(&mut self) {
+        let mut cube: Cubie = Cubie::default();
+        self.edge8_pos_conjugate_table.resize(
+            PHASE2_EDGE_PERMUTATION_COUNT as usize * SYM_COUNT as usize,
+            0,
+        );
+        for phase2_edge_perm_coord in 0..PHASE2_EDGE_PERMUTATION_COUNT {
+            for sym_idx in 0..SYM_COUNT {
+                cube.set_phase2_edge_permutation_coord(phase2_edge_perm_coord);
+                cube = SymMove::sym_index_to_cubie_move(sym_idx)
+                    * cube
+                    * SymMove::sym_index_to_inverse_cubie_move(sym_idx);
+                self.edge8_pos_conjugate_table[Self::encode_phase2_edge_perm_sym_idx(
+                    phase2_edge_perm_coord,
+                    sym_idx,
+                ) as usize] = cube.phase2_edge_permutation_coord();
+            }
+        }
+    }
+}
+
 pub struct PruneTable {
     // phase 1 coordinate: corner orient x flip ud coord
     // 2187 x 64430 = 140,908,410
