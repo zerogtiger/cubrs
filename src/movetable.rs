@@ -1,3 +1,5 @@
+use std::io::{BufReader, BufWriter, Read, Write};
+
 use core::{
     assert,
     cmp::max,
@@ -15,6 +17,59 @@ use crate::{
     moves::{Move, SymMove},
 };
 
+fn save_vec<T: bytemuck::Pod>(path: &str, vec: &Vec<T>) {
+    let p = std::path::Path::new(path);
+
+    if let Some(parent) = p.parent() {
+        std::fs::create_dir_all(parent).unwrap();
+    }
+    let mut f = BufWriter::new(File::create(path).unwrap());
+    let bytes = bytemuck::cast_slice(vec.as_slice());
+    f.write_all(&(vec.len() as u64).to_le_bytes()).unwrap();
+    f.write_all(bytes).unwrap();
+}
+
+fn load_vec<T: bytemuck::Pod + Default + Clone>(path: &str) -> Vec<T> {
+    let mut f = BufReader::new(File::open(path).unwrap());
+    let mut len_bytes = [0u8; 8];
+    f.read_exact(&mut len_bytes).unwrap();
+    let len = u64::from_le_bytes(len_bytes) as usize;
+    let mut vec = vec![T::default(); len];
+    f.read_exact(bytemuck::cast_slice_mut(vec.as_mut_slice()))
+        .unwrap();
+    vec
+}
+
+fn save_hashmap(path: &str, map: &HashMap<u32, u16>) {
+    let p = std::path::Path::new(path);
+
+    if let Some(parent) = p.parent() {
+        std::fs::create_dir_all(parent).unwrap();
+    }
+    let mut f = BufWriter::new(File::create(path).unwrap());
+    f.write_all(&(map.len() as u64).to_le_bytes()).unwrap();
+    for (k, v) in map.iter() {
+        f.write_all(&k.to_le_bytes()).unwrap();
+        f.write_all(&v.to_le_bytes()).unwrap();
+    }
+}
+
+fn load_hashmap(path: &str) -> HashMap<u32, u16> {
+    let mut f = BufReader::new(File::open(path).unwrap());
+    let mut len_bytes = [0u8; 8];
+    f.read_exact(&mut len_bytes).unwrap();
+    let len = u64::from_le_bytes(len_bytes) as usize;
+    let mut map = HashMap::with_capacity(len);
+    for _ in 0..len {
+        let mut k = [0u8; 4];
+        let mut v = [0u8; 2];
+        f.read_exact(&mut k).unwrap();
+        f.read_exact(&mut v).unwrap();
+        map.insert(u32::from_le_bytes(k), u16::from_le_bytes(v));
+    }
+    map
+}
+
 // S(i) * M * S(i)^-1, where M: move; i: sym index
 pub struct SymMoveTable {
     sym_move_table: Vec<u8>,
@@ -22,10 +77,16 @@ pub struct SymMoveTable {
 
 impl SymMoveTable {
     pub fn load_or_generate() -> Self {
+        if std::path::Path::new("tables/sym_move_table.bin").exists() {
+            return Self {
+                sym_move_table: load_vec("tables/sym_move_table.bin"),
+            };
+        }
         let mut ret = Self {
             sym_move_table: Vec::new(),
         };
         ret.generate_tables();
+        save_vec("tables/sym_move_table.bin", &ret.sym_move_table);
         ret
     }
 
@@ -70,10 +131,16 @@ pub struct SymMultTable {
 
 impl SymMultTable {
     pub fn load_or_generate() -> Self {
+        if std::path::Path::new("tables/sym_mult_table.bin").exists() {
+            return Self {
+                sym_mult_table: load_vec("tables/sym_mult_table.bin"),
+            };
+        }
         let mut ret = Self {
             sym_mult_table: Vec::new(),
         };
         ret.generate_tables();
+        save_vec("tables/sym_mult_table.bin", &ret.sym_mult_table);
         ret
     }
 
@@ -114,13 +181,25 @@ pub struct FlipUDSliceTable {
 
 impl FlipUDSliceTable {
     pub fn load_or_generate() -> Self {
-        // TODO: save to disk
+        if std::path::Path::new("tables/flip_ud_class_to_rep.bin").exists()
+            && std::path::Path::new("tables/flip_ud_rep_to_class.bin").exists()
+            && std::path::Path::new("tables/flip_ud_class_to_sym.bin").exists()
+        {
+            return Self {
+                class_idx_to_rep_encoded_raw_coord: load_vec("tables/flip_ud_class_to_rep.bin"),
+                rep_encoded_raw_coord_to_class_idx: load_hashmap("tables/flip_ud_rep_to_class.bin"),
+                class_idx_to_sym_state: load_vec("tables/flip_ud_class_to_sym.bin"),
+            }
+        }
         let mut ret = Self {
             class_idx_to_rep_encoded_raw_coord: Vec::new(),
             rep_encoded_raw_coord_to_class_idx: HashMap::new(),
             class_idx_to_sym_state: Vec::new(),
         };
         ret.generate_tables();
+        save_vec( "tables/flip_ud_class_to_rep.bin", &ret.class_idx_to_rep_encoded_raw_coord);
+        save_hashmap("tables/flip_ud_rep_to_class.bin", &ret.rep_encoded_raw_coord_to_class_idx);
+        save_vec("tables/flip_ud_class_to_sym.bin", &ret.class_idx_to_sym_state);
         ret
     }
 
@@ -253,6 +332,20 @@ impl MoveTable {
         sym_mult_table: Arc<SymMultTable>,
     ) -> Self {
         // let file = File::create("movetable/.txt");
+        if std::path::Path::new("tables/move_corner_orient.bin").exists()
+            && std::path::Path::new("tables/move_flip_ud_slice.bin").exists()
+            && std::path::Path::new("tables/move_corner_perm.bin").exists()
+        {
+            return Self {
+                corner_orient_table: load_vec("tables/move_corner_orient.bin"),
+                flip_ud_slice_table: load_vec("tables/move_flip_ud_slice.bin"),
+                sym_move_table,
+                sym_mult_table,
+                corner_perm_table: load_vec("tables/move_corner_perm.bin"),
+                phase2_edge_perm_table: Vec::new(),
+                phase2_ud_slice_table: Vec::new(),
+            }
+        }
         let mut table: Self = Self {
             // phase 1
             corner_orient_table: Default::default(),
@@ -472,10 +565,16 @@ pub struct TwistConjugateTable {
 
 impl TwistConjugateTable {
     pub fn load_or_generate() -> Self {
+        if std::path::Path::new("tables/twist_conjugate.bin").exists() {
+            return Self {
+                twist_conjugate: load_vec("tables/twist_conjugate.bin"),
+            }
+        }
         let mut ret = Self {
             twist_conjugate: Default::default(),
         };
         ret.generate_tables();
+        save_vec("tables/twist_conjugate.bin", &ret.twist_conjugate);
         ret
     }
 
@@ -523,6 +622,14 @@ impl PruneTable {
         twist_conjugate_table: Arc<TwistConjugateTable>,
         flip_ud_slice_table: Arc<FlipUDSliceTable>,
     ) -> Self {
+        if std::path::Path::new("tables/phase_1_prune.bin").exists() {
+            return Self {
+                phase1_table: load_vec("tables/phase_1_prune.bin"),
+                phase2_table: Vec::new(),
+                twist_conjugate_table,
+                flip_ud_slice_table,
+            }
+        }
         let mut ret = Self {
             phase1_table: Vec::new(),
             phase2_table: Vec::new(),
@@ -530,6 +637,7 @@ impl PruneTable {
             flip_ud_slice_table,
         };
         ret.generate_phase1_prune_table(move_table);
+        save_vec("tables/phase_1_prune.bin", &ret.phase1_table);
         ret
     }
 
