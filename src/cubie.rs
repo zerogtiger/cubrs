@@ -11,12 +11,13 @@ pub const FACTORIAL: [u32; 13] = [
 
 pub const CORNER_ORIENTATION_COUNT: u16 = 2187;
 pub const EDGE_ORIENTATION_COUNT: u16 = 2048;
-pub const CORNER_PERMUTATION_COUNT: u32 = 40320;
+pub const CORNER_PERMUTATION_COUNT: u16 = 40320;
 pub const EDGE_PERMUTATION_COUNT: u32 = 479001600;
 pub const UD_SLICE_COUNT: u16 = 495;
-pub const PHASE2_EDGE_PERMUTATION_COUNT: u32 = 40320;
+pub const PHASE2_EDGE_PERMUTATION_COUNT: u16 = 40320;
 pub const PHASE2_UD_SLICE_COUNT: u16 = 24;
 pub const FLIP_UD_SLICE_COUNT: u16 = 64430;
+pub const CORNER_PERMUTATION_SYM_COUNT: u16 = 2768;
 
 pub const SYM_COUNT: u8 = 16;
 pub const MOVE_COUNT: u8 = 18;
@@ -190,8 +191,8 @@ impl Cubie {
         ret
     }
 
-    pub fn corner_permutation_coord(&self) -> u32 {
-        let mut ret: u32 = 0;
+    pub fn corner_permutation_coord(&self) -> u16 {
+        let mut ret: u16 = 0;
         for idx in 1..8 {
             let mut accum = 0;
             for curr in 0..idx {
@@ -200,7 +201,7 @@ impl Cubie {
                     false => 0,
                 };
             }
-            ret += accum * FACTORIAL[idx];
+            ret += accum * FACTORIAL[idx] as u16;
         }
         ret
     }
@@ -253,9 +254,9 @@ impl Cubie {
         ret
     }
 
-    pub fn phase2_edge_permutation_coord(&self) -> u32 {
+    pub fn phase2_edge_permutation_coord(&self) -> u16 {
         // TODO: asserts cube is in G1
-        let mut ret: u32 = 0;
+        let mut ret: u16 = 0;
         let mut factorial: u32 = 1;
         for idx in 1..8 {
             factorial *= idx as u32;
@@ -266,7 +267,7 @@ impl Cubie {
                     false => 0,
                 };
             }
-            ret += accum * factorial;
+            ret += accum * factorial as u16;
         }
         ret
     }
@@ -309,12 +310,12 @@ impl Cubie {
         self.edge_orientation[11] = accum;
     }
 
-    pub fn set_corner_permutation_coord(&mut self, mut corner_perm_coord: u32) {
+    pub fn set_corner_permutation_coord(&mut self, mut corner_perm_coord: u16) {
         let mut items = vec![0, 1, 2, 3, 4, 5, 6, 7];
         for idx in (0..8).rev() {
             self.corner_permutation[idx] =
-                items.remove(idx - (corner_perm_coord / FACTORIAL[idx]) as usize);
-            corner_perm_coord %= FACTORIAL[idx];
+                items.remove(idx - (corner_perm_coord / FACTORIAL[idx] as u16) as usize);
+            corner_perm_coord %= FACTORIAL[idx] as u16;
         }
     }
 
@@ -344,13 +345,13 @@ impl Cubie {
         }
     }
 
-    pub fn set_phase2_edge_permutation_coord(&mut self, mut phase2_edge_perm_coord: u32) {
+    pub fn set_phase2_edge_permutation_coord(&mut self, mut phase2_edge_perm_coord: u16) {
         // TODO: assert cube in G1
         let mut items = vec![0, 1, 2, 3, 4, 5, 6, 7];
         for idx in (0..8).rev() {
             self.edge_permutation[idx] =
-                items.remove(idx - (phase2_edge_perm_coord / FACTORIAL[idx]) as usize);
-            phase2_edge_perm_coord %= FACTORIAL[idx];
+                items.remove(idx - (phase2_edge_perm_coord / FACTORIAL[idx] as u16) as usize);
+            phase2_edge_perm_coord %= FACTORIAL[idx] as u16;
         }
     }
 
