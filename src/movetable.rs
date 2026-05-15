@@ -189,7 +189,7 @@ impl FlipUDSliceTable {
                 class_idx_to_rep_encoded_raw_coord: load_vec("tables/flip_ud_class_to_rep.bin"),
                 rep_encoded_raw_coord_to_class_idx: load_hashmap("tables/flip_ud_rep_to_class.bin"),
                 class_idx_to_sym_state: load_vec("tables/flip_ud_class_to_sym.bin"),
-            }
+            };
         }
         let mut ret = Self {
             class_idx_to_rep_encoded_raw_coord: Vec::new(),
@@ -197,9 +197,18 @@ impl FlipUDSliceTable {
             class_idx_to_sym_state: Vec::new(),
         };
         ret.generate_tables();
-        save_vec( "tables/flip_ud_class_to_rep.bin", &ret.class_idx_to_rep_encoded_raw_coord);
-        save_hashmap("tables/flip_ud_rep_to_class.bin", &ret.rep_encoded_raw_coord_to_class_idx);
-        save_vec("tables/flip_ud_class_to_sym.bin", &ret.class_idx_to_sym_state);
+        save_vec(
+            "tables/flip_ud_class_to_rep.bin",
+            &ret.class_idx_to_rep_encoded_raw_coord,
+        );
+        save_hashmap(
+            "tables/flip_ud_rep_to_class.bin",
+            &ret.rep_encoded_raw_coord_to_class_idx,
+        );
+        save_vec(
+            "tables/flip_ud_class_to_sym.bin",
+            &ret.class_idx_to_sym_state,
+        );
         ret
     }
 
