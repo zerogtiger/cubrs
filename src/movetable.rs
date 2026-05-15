@@ -755,31 +755,43 @@ pub struct PruneTable {
     // 2768 x 40320 = 111,605,760
     phase2_table: Vec<u8>,
     twist_conjugate_table: Arc<TwistConjugateTable>,
+    edge8_pos_conjugate_table: Arc<Edge8PosConjugateTable>,
     flip_ud_slice_table: Arc<FlipUDSliceTable>,
+    corner_perm_sym_table: Arc<CornerPermSymTable>,
 }
 
 impl PruneTable {
     pub fn load_or_generate(
         move_table: &MoveTable,
         twist_conjugate_table: Arc<TwistConjugateTable>,
+        edge8_pos_conjugate_table: Arc<Edge8PosConjugateTable>,
         flip_ud_slice_table: Arc<FlipUDSliceTable>,
+        corner_perm_sym_table: Arc<CornerPermSymTable>,
     ) -> Self {
-        if std::path::Path::new("tables/phase_1_prune.bin").exists() {
+        if std::path::Path::new("tables/phase_1_prune.bin").exists()
+            && std::path::Path::new("tables/phase_2_prune.bin").exists()
+        {
             return Self {
                 phase1_table: load_vec("tables/phase_1_prune.bin"),
-                phase2_table: Vec::new(),
+                phase2_table: load_vec("tables/phase_2_prune.bin"),
                 twist_conjugate_table,
+                edge8_pos_conjugate_table,
                 flip_ud_slice_table,
-            }
+                corner_perm_sym_table,
+            };
         }
         let mut ret = Self {
             phase1_table: Vec::new(),
             phase2_table: Vec::new(),
             twist_conjugate_table,
+            edge8_pos_conjugate_table,
             flip_ud_slice_table,
+            corner_perm_sym_table,
         };
         ret.generate_phase1_prune_table(move_table);
+        ret.generate_phase2_prune_table(move_table);
         save_vec("tables/phase_1_prune.bin", &ret.phase1_table);
+        save_vec("tables/phase_2_prune.bin", &ret.phase2_table);
         ret
     }
 
@@ -795,6 +807,18 @@ impl PruneTable {
         self.get_phase1_table(result_corner_orient_coord, flip_ud_slice_class_idx)
     }
 
+    pub fn get_phase_2_optimal_depth(
+        &self,
+        corner_perm_sym_class_idx: u16,
+        corner_perm_sym_idx: u8,
+        phase2_edge_perm_coord: u16,
+    ) -> u8 {
+        let result_edge_perm = self
+            .edge8_pos_conjugate_table
+            .get_edge8_pos_conjugate(phase2_edge_perm_coord, corner_perm_sym_idx);
+        self.get_phase2_table(corner_perm_sym_class_idx, result_edge_perm)
+    }
+
     fn encode_phase_1_coord(corner_orient_coord: u16, flip_ud_slice_coord: u16) -> u32 {
         CORNER_ORIENTATION_COUNT as u32 * flip_ud_slice_coord as u32 + corner_orient_coord as u32
     }
@@ -807,6 +831,19 @@ impl PruneTable {
         )
     }
 
+    fn encode_phase_2_coord(corner_perm_sym_coord: u16, phase2_edge_perm_coord: u16) -> u32 {
+        CORNER_PERMUTATION_SYM_COUNT as u32 * phase2_edge_perm_coord as u32
+            + corner_perm_sym_coord as u32
+    }
+
+    // (corner perm sym, edge perm)
+    fn decode_phase_2_coord(phase_2_coord: u32) -> (u16, u16) {
+        (
+            (phase_2_coord % CORNER_PERMUTATION_SYM_COUNT as u32) as u16,
+            (phase_2_coord / CORNER_PERMUTATION_SYM_COUNT as u32) as u16,
+        )
+    }
+
     fn get_phase1_table(&self, corner_orient_coord: u16, flip_ud_slice_coord: u16) -> u8 {
         self.phase1_table
             [Self::encode_phase_1_coord(corner_orient_coord, flip_ud_slice_coord) as usize]
@@ -815,6 +852,22 @@ impl PruneTable {
     fn set_phase1_table(&mut self, corner_orient_coord: u16, flip_ud_slice_coord: u16, depth: u8) {
         self.phase1_table
             [Self::encode_phase_1_coord(corner_orient_coord, flip_ud_slice_coord) as usize] = depth;
+    }
+
+    fn get_phase2_table(&self, corner_perm_sym_class_idx: u16, phase2_edge_perm_coord: u16) -> u8 {
+        self.phase2_table
+            [Self::encode_phase_2_coord(corner_perm_sym_class_idx, phase2_edge_perm_coord) as usize]
+    }
+
+    fn set_phase2_table(
+        &mut self,
+        corner_perm_sym_coord: u16,
+        phase2_edge_perm_coord: u16,
+        depth: u8,
+    ) {
+        self.phase2_table
+            [Self::encode_phase_2_coord(corner_perm_sym_coord, phase2_edge_perm_coord) as usize] =
+            depth;
     }
 
     fn generate_phase1_prune_table(&mut self, move_table: &MoveTable) {
@@ -870,6 +923,81 @@ impl PruneTable {
                                         .get_twist_conjugate(next.0, sym_idx);
                                     if self.get_phase1_table(alt_twist, next.1) == u8::MAX {
                                         self.set_phase1_table(alt_twist, next.1, curr_depth + 1);
+                                        distribution[curr_depth as usize + 1] += 1;
+                                    }
+                                }
+                                sym >>= 1;
+                            }
+                        }
+                    }
+                    false => {}
+                }
+            }
+        }
+        println!("Max depth: {max_depth}");
+        println!("Distribution: {distribution:?}");
+    }
+
+    fn generate_phase2_prune_table(&mut self, move_table: &MoveTable) {
+        self.phase2_table.resize(
+            CORNER_PERMUTATION_SYM_COUNT as usize * PHASE2_EDGE_PERMUTATION_COUNT as usize,
+            u8::MAX,
+        );
+
+        self.set_phase2_table(0, 0, 0);
+        // corner perm sym, phase2 edge perm
+        let mut q: VecDeque<(u16, u16)> = VecDeque::new();
+        q.push_back((0, 0));
+
+        let mut distribution = [0; 20];
+        let mut max_depth = 0;
+
+        let mut curr = 0;
+        let mut old = 0;
+        while !q.is_empty() {
+            curr += 1;
+            if curr / 1_000_000 != old {
+                old += 1;
+                println!("{old}");
+            }
+
+            let (curr_corner_perm_sym, curr_phase2_edge_perm) = q.pop_front().unwrap();
+            let curr_depth = self.get_phase2_table(curr_corner_perm_sym, curr_phase2_edge_perm);
+            max_depth = max(max_depth, curr_depth);
+            for move_action in Move::G1PRESERVING {
+                let (next_corner_perm_sym_class_idx, next_corner_perm_sym_idx) = move_table
+                    .get_next_corner_perm_sym_coord(curr_corner_perm_sym, 0, move_action as u8);
+
+                let next: (u16, u16) = (
+                    next_corner_perm_sym_class_idx,
+                    self.edge8_pos_conjugate_table.get_edge8_pos_conjugate(
+                        move_table.get_next_phase2_edge_perm_coord(
+                            curr_phase2_edge_perm,
+                            move_action as u8,
+                        ),
+                        next_corner_perm_sym_idx,
+                    ),
+                );
+                match self.get_phase2_table(next.0, next.1) == u8::MAX {
+                    true => {
+                        q.push_back(next);
+                        distribution[curr_depth as usize + 1] += 1;
+                        self.set_phase2_table(next.0, next.1, curr_depth + 1);
+
+                        let sym_state = self.corner_perm_sym_table.get_sym_states(next.0);
+                        if sym_state != 1 {
+                            let mut sym = sym_state >> 1;
+                            for sym_idx in 1..16 {
+                                if sym & 1 == 1 {
+                                    let alt_edge_perm = self
+                                        .edge8_pos_conjugate_table
+                                        .get_edge8_pos_conjugate(next.1, sym_idx);
+                                    if self.get_phase2_table(next.0, alt_edge_perm) == u8::MAX {
+                                        self.set_phase2_table(
+                                            next.0,
+                                            alt_edge_perm,
+                                            curr_depth + 1,
+                                        );
                                         distribution[curr_depth as usize + 1] += 1;
                                     }
                                 }
