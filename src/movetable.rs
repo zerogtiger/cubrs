@@ -313,6 +313,97 @@ impl FlipUDSliceTable {
     }
 }
 
+pub struct CornerPermSymTable {
+    class_idx_to_rep_raw_coord: Vec<u16>,
+    rep_raw_coord_to_class_idx: HashMap<u16, u16>,
+    class_idx_to_sym_state: Vec<u16>,
+}
+
+impl CornerPermSymTable {
+    pub fn load_or_generate() -> Self {
+        let mut ret = Self {
+            class_idx_to_rep_raw_coord: Vec::new(),
+            rep_raw_coord_to_class_idx: HashMap::new(),
+            class_idx_to_sym_state: Vec::new(),
+        };
+        ret.generate_table();
+        ret
+    }
+
+    pub fn encode_sym_coord(class_idx: u16, sym_idx: u8) -> u32 {
+        class_idx as u32 * 16 + sym_idx as u32
+    }
+
+    pub fn decode_sym_coord(sym_coord: u32) -> (u16, u8) {
+        ((sym_coord / 16) as u16, (sym_coord % 16) as u8)
+    }
+
+    fn set_sym_state(&mut self, class_idx: u16, index: usize) {
+        self.class_idx_to_sym_state[class_idx as usize] |= 1 << index;
+    }
+
+    pub fn get_sym_states(&self, class_idx: u16) -> u16 {
+        self.class_idx_to_sym_state[class_idx as usize]
+    }
+
+    // class idx, sym idx
+    pub fn raw_coord_to_sym_coord(&self, corner_perm_coord: u16) -> (u16, u8) {
+        for i in 0..16 {
+            let mut cube: Cubie = Cubie::default();
+            cube.set_corner_permutation_coord(corner_perm_coord);
+            cube = SymMove::sym_index_to_cubie_move(i)
+                * cube
+                * SymMove::sym_index_to_inverse_cubie_move(i);
+            match self
+                .rep_raw_coord_to_class_idx
+                .get(&cube.corner_permutation_coord())
+            {
+                None => continue,
+                Some(class_idx) => return (*class_idx, i),
+            }
+        }
+        assert!(false);
+        (0, 0)
+    }
+
+    pub fn class_idx_to_raw_coord(&self, class_idx: u16) -> u16 {
+        self.class_idx_to_rep_raw_coord[class_idx as usize]
+    }
+
+    fn generate_table(&mut self) {
+        let mut corner_perm_sym_coord: u16 = 0;
+        self.class_idx_to_rep_raw_coord
+            .resize(CORNER_PERMUTATION_SYM_COUNT as usize, u16::MAX);
+        self.class_idx_to_sym_state
+            .resize(CORNER_PERMUTATION_SYM_COUNT as usize, 0);
+        let mut raw_coord_used: Vec<bool> = vec![false; CORNER_PERMUTATION_COUNT as usize];
+
+        for corner_perm_coord in 0..CORNER_PERMUTATION_COUNT {
+            if raw_coord_used[corner_perm_coord as usize] {
+                continue;
+            }
+
+            let rep = corner_perm_coord;
+            for sym_idx in 0..16 {
+                let mut cube = Cubie::default();
+                cube.set_corner_permutation_coord(corner_perm_coord);
+                cube = SymMove::sym_index_to_inverse_cubie_move(sym_idx)
+                    * cube
+                    * SymMove::sym_index_to_cubie_move(sym_idx);
+                let new_corner_perm_coord = cube.corner_permutation_coord();
+                raw_coord_used[new_corner_perm_coord as usize] = true;
+                if new_corner_perm_coord == rep {
+                    self.set_sym_state(corner_perm_sym_coord, sym_idx as usize);
+                }
+            }
+            self.class_idx_to_rep_raw_coord[corner_perm_sym_coord as usize] = rep;
+            self.rep_raw_coord_to_class_idx
+                .insert(rep, corner_perm_sym_coord);
+            corner_perm_sym_coord += 1;
+        }
+    }
+}
+
 pub struct MoveTable {
     // phase 1
     pub corner_orient_table: Vec<u16>,
