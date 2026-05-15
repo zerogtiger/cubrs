@@ -42,6 +42,7 @@ impl Move {
         U, U2, U3, D, D2, D3, F, F2, F3, B, B2, B3, L, L2, L3, R, R2, R3,
     ];
     pub const ALL_UNIQUE: [Move; 6] = [U, D, F, B, L, R];
+    pub const G1PRESERVING: [Move; 10] = [U, U2, U3, D, D2, D3, R2, L2, F2, B2];
 
     pub fn move_action_to_move_cubie(move_action: Move) -> Cubie {
         match move_action as Move {
