@@ -1,8 +1,12 @@
+use crate::display::CubeDisplay;
+use crate::facelet::{CORNER_FACES, Color, EDGE_FACES, Facelet};
 use crate::moves::Move;
 use crate::moves::{B_MOVE, D_MOVE, F_MOVE, L_MOVE, Move::*, R_MOVE, U_MOVE};
 use core::iter::Iterator;
 use core::{assert, todo};
+use std::collections::HashMap;
 use std::default;
+use std::iter::zip;
 use std::ops::Mul;
 
 pub const FACTORIAL: [u32; 13] = [
@@ -64,6 +68,40 @@ impl TryFrom<u8> for Corner {
     }
 }
 
+impl Corner {
+    // corner u8, orientation
+    pub fn from_colors(colors: [Color; 3]) -> Option<(Corner, u8)> {
+        let rep_colors = [colors[0].to_rep(), colors[1].to_rep(), colors[2].to_rep()];
+        match rep_colors {
+            [Color::U(0), Color::R(0), Color::F(0)] => Some((Corner::URF, 0)),
+            [Color::F(0), Color::U(0), Color::R(0)] => Some((Corner::URF, 1)),
+            [Color::R(0), Color::F(0), Color::U(0)] => Some((Corner::URF, 2)),
+            [Color::U(0), Color::F(0), Color::L(0)] => Some((Corner::ULF, 0)),
+            [Color::L(0), Color::U(0), Color::F(0)] => Some((Corner::ULF, 1)),
+            [Color::F(0), Color::L(0), Color::U(0)] => Some((Corner::ULF, 2)),
+            [Color::U(0), Color::L(0), Color::B(0)] => Some((Corner::ULB, 0)),
+            [Color::B(0), Color::U(0), Color::L(0)] => Some((Corner::ULB, 1)),
+            [Color::L(0), Color::B(0), Color::U(0)] => Some((Corner::ULB, 2)),
+            [Color::U(0), Color::B(0), Color::R(0)] => Some((Corner::URB, 0)),
+            [Color::R(0), Color::U(0), Color::B(0)] => Some((Corner::URB, 1)),
+            [Color::B(0), Color::R(0), Color::U(0)] => Some((Corner::URB, 2)),
+            [Color::D(0), Color::F(0), Color::R(0)] => Some((Corner::DRF, 0)),
+            [Color::R(0), Color::D(0), Color::F(0)] => Some((Corner::DRF, 1)),
+            [Color::F(0), Color::R(0), Color::D(0)] => Some((Corner::DRF, 2)),
+            [Color::D(0), Color::L(0), Color::F(0)] => Some((Corner::DLF, 0)),
+            [Color::F(0), Color::D(0), Color::L(0)] => Some((Corner::DLF, 1)),
+            [Color::L(0), Color::F(0), Color::D(0)] => Some((Corner::DLF, 2)),
+            [Color::D(0), Color::B(0), Color::L(0)] => Some((Corner::DLB, 0)),
+            [Color::L(0), Color::D(0), Color::B(0)] => Some((Corner::DLB, 1)),
+            [Color::B(0), Color::L(0), Color::D(0)] => Some((Corner::DLB, 2)),
+            [Color::D(0), Color::R(0), Color::B(0)] => Some((Corner::DRB, 0)),
+            [Color::B(0), Color::D(0), Color::R(0)] => Some((Corner::DRB, 1)),
+            [Color::R(0), Color::B(0), Color::D(0)] => Some((Corner::DRB, 2)),
+            _ => None,
+        }
+    }
+}
+
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Edge {
@@ -98,6 +136,39 @@ impl TryFrom<u8> for Edge {
             10 => Ok(Edge::BL),
             11 => Ok(Edge::BR),
             _ => Err(()),
+        }
+    }
+}
+
+impl Edge {
+    pub fn from_colors(colors: [Color; 2]) -> Option<(Edge, u8)> {
+        let rep_colors = [colors[0].to_rep(), colors[1].to_rep()];
+        match rep_colors {
+            [Color::U(0), Color::R(0)] => Some((Edge::UR, 0)),
+            [Color::R(0), Color::U(0)] => Some((Edge::UR, 1)),
+            [Color::U(0), Color::F(0)] => Some((Edge::UF, 0)),
+            [Color::F(0), Color::U(0)] => Some((Edge::UF, 1)),
+            [Color::U(0), Color::L(0)] => Some((Edge::UL, 0)),
+            [Color::L(0), Color::U(0)] => Some((Edge::UL, 1)),
+            [Color::U(0), Color::B(0)] => Some((Edge::UB, 0)),
+            [Color::B(0), Color::U(0)] => Some((Edge::UB, 1)),
+            [Color::D(0), Color::R(0)] => Some((Edge::DR, 0)),
+            [Color::R(0), Color::D(0)] => Some((Edge::DR, 1)),
+            [Color::D(0), Color::F(0)] => Some((Edge::DF, 0)),
+            [Color::F(0), Color::D(0)] => Some((Edge::DF, 1)),
+            [Color::D(0), Color::L(0)] => Some((Edge::DL, 0)),
+            [Color::L(0), Color::D(0)] => Some((Edge::DL, 1)),
+            [Color::D(0), Color::B(0)] => Some((Edge::DB, 0)),
+            [Color::B(0), Color::D(0)] => Some((Edge::DB, 1)),
+            [Color::F(0), Color::R(0)] => Some((Edge::FR, 0)),
+            [Color::R(0), Color::F(0)] => Some((Edge::FR, 1)),
+            [Color::F(0), Color::L(0)] => Some((Edge::FL, 0)),
+            [Color::L(0), Color::F(0)] => Some((Edge::FL, 1)),
+            [Color::B(0), Color::L(0)] => Some((Edge::BL, 0)),
+            [Color::L(0), Color::B(0)] => Some((Edge::BL, 1)),
+            [Color::B(0), Color::R(0)] => Some((Edge::BR, 0)),
+            [Color::R(0), Color::B(0)] => Some((Edge::BR, 1)),
+            _ => None,
         }
     }
 }
@@ -160,6 +231,78 @@ impl Cubie {
             corner_orientation: corner_orientation.map(|c| c as u8),
             edge_permutation: edge_permutation.map(|c| c as u8),
             edge_orientation: edge_orientation.map(|c| c as u8),
+        }
+    }
+
+    pub fn from_string(spec: &str) -> Result<Self, ()> {
+        let mut spec = String::from(spec.trim());
+        spec.retain(|c| !c.is_whitespace());
+        if spec.len() != 54 {
+            println!("HA");
+            return Err(());
+        }
+        let mut char_to_rep: HashMap<char, Color> = HashMap::new();
+        let centers = [
+            Color::U(0),
+            Color::R(0),
+            Color::F(0),
+            Color::D(0),
+            Color::L(0),
+            Color::B(0),
+        ];
+        for i in 0..6 {
+            let char_at = spec.chars().nth(4 + i * 9).unwrap();
+            if char_to_rep.contains_key(&char_at) {
+                println!("AH");
+                return Err(());
+            }
+            char_to_rep.insert(char_at, centers[i]);
+        }
+        let mut facelet = Facelet::new();
+        for (idx, char) in spec.chars().enumerate() {
+            match char_to_rep.get(&char) {
+                Some(color) => facelet.faces[idx] = *color,
+                None => {
+                    println!("AHh");
+                    return Err(());
+                }
+            }
+        }
+        return Self::from_facelet(&facelet);
+    }
+
+    pub fn from_facelet(facelet: &Facelet) -> Result<Self, ()> {
+        let mut cube = Cubie::default();
+        for (corner_idx, pos) in CORNER_FACES.iter().enumerate() {
+            let colors = [
+                facelet.faces[u8::from(pos[0]) as usize],
+                facelet.faces[u8::from(pos[1]) as usize],
+                facelet.faces[u8::from(pos[2]) as usize],
+            ];
+            match Corner::from_colors(colors) {
+                Some((result_corner, result_orient)) => {
+                    cube.corner_permutation[corner_idx] = result_corner as u8;
+                    cube.corner_orientation[corner_idx] = result_orient as u8;
+                }
+                None => return Err(()),
+            }
+        }
+        for (edge_idx, pos) in EDGE_FACES.iter().enumerate() {
+            let colors = [
+                facelet.faces[u8::from(pos[0]) as usize],
+                facelet.faces[u8::from(pos[1]) as usize],
+            ];
+            match Edge::from_colors(colors) {
+                Some((result_edge, result_orient)) => {
+                    cube.edge_permutation[edge_idx] = result_edge as u8;
+                    cube.edge_orientation[edge_idx] = result_orient as u8;
+                }
+                None => return Err(()),
+            }
+        }
+        match cube.is_solvable() {
+            true => Ok(cube),
+            false => Err(()),
         }
     }
 

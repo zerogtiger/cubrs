@@ -27,6 +27,19 @@ impl From<Color> for u8 {
     }
 }
 
+impl Color {
+    pub fn to_rep(&self) -> Color {
+        match self {
+            U(_) => U(0),
+            R(_) => R(0),
+            F(_) => F(0),
+            D(_) => D(0),
+            L(_) => L(0),
+            B(_) => B(0),
+        }
+    }
+}
+
 impl TryFrom<char> for Color {
     type Error = ();
 
