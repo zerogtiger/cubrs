@@ -2,15 +2,16 @@ use core::convert::From;
 use std::sync::Arc;
 
 use crate::{
-    cubie::{MOVE_COUNT, UD_SLICE_COUNT},
+    cubie::{Cubie, MOVE_COUNT, PHASE2_UD_SLICE_COUNT, UD_SLICE_COUNT},
     moves::Move,
-    movetable::{FlipUDSliceTable, MoveTable, PruneTable},
+    movetable::{CornerPermSymTable, FlipUDSliceTable, MoveTable, PruneTable},
 };
 
 pub struct Solver {
     prune_table: Arc<PruneTable>,
     move_table: Arc<MoveTable>,
     flip_ud_slice_table: Arc<FlipUDSliceTable>,
+    corner_perm_sym_table: Arc<CornerPermSymTable>,
 }
 
 impl Solver {
@@ -18,14 +19,208 @@ impl Solver {
         prune_table: Arc<PruneTable>,
         move_table: Arc<MoveTable>,
         flip_ud_slice_table: Arc<FlipUDSliceTable>,
+        corner_perm_sym_table: Arc<CornerPermSymTable>,
     ) -> Self {
         Self {
             prune_table,
             move_table,
             flip_ud_slice_table,
+            corner_perm_sym_table,
         }
     }
-    pub fn solve_phase_1_optimal(
+
+    pub fn solve(&self, cube: &Cubie, move_limit: u8) -> Result<Vec<Move>, ()> {
+        let corner_orient_coord = cube.corner_orientation_coord();
+        let edge_orient_coord = cube.edge_orientation_coord();
+        let ud_slice_coord = cube.ud_slice_coord();
+        let (flip_ud_slice_class_idx, flip_ud_slice_sym_idx) = self
+            .flip_ud_slice_table
+            .raw_coord_to_sym_coord(edge_orient_coord, ud_slice_coord);
+        let mut solution = Vec::new();
+        let phase1_optimal_depth = self.prune_table.get_phase_1_optimal_depth(
+            corner_orient_coord,
+            flip_ud_slice_class_idx,
+            flip_ud_slice_sym_idx,
+        );
+        for phase_1_limit in phase1_optimal_depth..move_limit {
+            if self.solve_phase_1_recurse(
+                corner_orient_coord,
+                flip_ud_slice_class_idx,
+                flip_ud_slice_sym_idx,
+                phase_1_limit,
+                phase_1_limit,
+                move_limit,
+                &mut solution,
+                cube.corner_orientation_coord(),
+                cube.edge_orientation_coord(),
+                cube.corner_permutation_coord(),
+                cube.edge_permutation_coord(),
+                None,
+            ) {
+                return Ok(solution);
+            }
+        }
+        Err(())
+    }
+
+    fn solve_phase_1_recurse(
+        &self,
+        corner_orient_coord: u16,
+        flip_ud_slice_class_idx: u16,
+        flip_ud_slice_sym_idx: u8,
+        remaining_move_count: u8,
+        total_phase_1_move_limit: u8,
+        max_move_limit: u8,
+        solution: &mut Vec<Move>,
+        orig_corner_orient: u16,
+        orig_edge_orient: u16,
+        orig_corner_perm: u16,
+        orig_edge_perm: u32,
+        last_move: Option<u8>,
+    ) -> bool {
+        if corner_orient_coord == 0 && flip_ud_slice_class_idx == 0 && remaining_move_count == 0 {
+            let mut cube = Cubie::default();
+            cube.set_corner_permutation_coord(orig_corner_perm);
+            cube.set_edge_permutation_coord(orig_edge_perm);
+            cube.set_corner_orientation_coord(orig_corner_orient);
+            cube.set_edge_orientation_coord(orig_edge_orient);
+            let phase_2_move_limit = max_move_limit - total_phase_1_move_limit;
+            cube = cube.apply_moves(solution);
+            let (corner_perm_sym_class_idx, corner_perm_sym_idx) = self
+                .corner_perm_sym_table
+                .raw_coord_to_sym_coord(cube.corner_permutation_coord());
+            return self.solve_phase_2_recurse(
+                corner_perm_sym_class_idx,
+                corner_perm_sym_idx,
+                cube.phase2_edge_permutation_coord(),
+                cube.phase2_ud_slice_coord(),
+                phase_2_move_limit,
+                solution,
+                // last_move,
+            );
+        }
+        if remaining_move_count == 0 {
+            return false;
+        }
+        let last_move = match last_move {
+            Some(last_move) => {
+                last_move
+            }
+            None => {
+                u8::MAX
+            }
+        };
+        for move_action in Move::ALL {
+            if Move::is_same_class(move_action as u8, last_move) {
+                continue;
+            }
+            let next_corner_orient_coord = self
+                .move_table
+                .get_next_corner_orient_coord(corner_orient_coord, move_action as u8);
+            let (next_flip_ud_slice_class_idx, next_flip_ud_slice_sym_idx) =
+                self.move_table.get_next_flip_ud_slice_sym_coord(
+                    flip_ud_slice_class_idx,
+                    flip_ud_slice_sym_idx,
+                    move_action as u8,
+                );
+
+            let next_optimal_depth = self.prune_table.get_phase_1_optimal_depth(
+                next_corner_orient_coord,
+                next_flip_ud_slice_class_idx,
+                next_flip_ud_slice_sym_idx,
+            );
+            if next_optimal_depth == 0 && remaining_move_count > 1 {
+                continue;
+            }
+            if next_optimal_depth <= remaining_move_count - 1 {
+                solution.push(Move::from(move_action));
+                if self.solve_phase_1_recurse(
+                    next_corner_orient_coord,
+                    next_flip_ud_slice_class_idx,
+                    next_flip_ud_slice_sym_idx,
+                    remaining_move_count - 1,
+                    total_phase_1_move_limit,
+                    max_move_limit,
+                    solution,
+                    orig_corner_orient,
+                    orig_edge_orient,
+                    orig_corner_perm,
+                    orig_edge_perm,
+                    Some(move_action as u8)
+                ) {
+                    return true;
+                }
+                solution.pop();
+            }
+        }
+        false
+    }
+
+    fn solve_phase_2_recurse(
+        &self,
+        corner_perm_sym_class_idx: u16,
+        corner_perm_sym_idx: u8,
+        phase2_edge_perm_coord: u16,
+        phase2_ud_slice_coord: u8,
+        remaining_move_count: u8,
+        solution: &mut Vec<Move>,
+        // last_move: Option<u8>
+    ) -> bool {
+        if corner_perm_sym_idx == 0 && phase2_edge_perm_coord == 0 && phase2_ud_slice_coord == 0 {
+            return true;
+        }
+        if remaining_move_count == 0 {
+            return false;
+        }
+        // let last_move = match last_move {
+        //     Some(last_move) => {
+        //         last_move
+        //     }
+        //     None => {
+        //         u8::MAX
+        //     }
+        // };
+        for move_action in Move::G1PRESERVING {
+            // if Move::is_same_class(move_action as u8, last_move) {
+            //     continue;
+            // }
+            let next_phase2_edge_perm_coord = self
+                .move_table
+                .get_next_phase2_edge_perm_coord(phase2_edge_perm_coord, move_action as u8);
+            let (next_corner_perm_sym_class_idx, next_corner_perm_sym_idx) =
+                self.move_table.get_next_corner_perm_sym_coord(
+                    corner_perm_sym_class_idx,
+                    corner_perm_sym_idx,
+                    move_action as u8,
+                );
+            let next_phase2_ud_slice_coord = self
+                .move_table
+                .get_next_phase2_ud_slice_coord(phase2_ud_slice_coord, move_action as u8);
+            if self.prune_table.get_phase_2_optimal_depth(
+                next_corner_perm_sym_class_idx,
+                next_corner_perm_sym_idx,
+                next_phase2_edge_perm_coord,
+            ) <= remaining_move_count - 1
+            {
+                solution.push(move_action);
+                if self.solve_phase_2_recurse(
+                    next_corner_perm_sym_class_idx,
+                    next_corner_perm_sym_idx,
+                    next_phase2_edge_perm_coord,
+                    next_phase2_ud_slice_coord,
+                    remaining_move_count - 1,
+                    solution,
+                    // Some(move_action as u8)
+                ) {
+                    return true;
+                }
+                solution.pop();
+            }
+        }
+        false
+    }
+
+    fn solve_phase_1_optimal(
         &self,
         corner_orient_coord: u16,
         edge_orient_coord: u16,
@@ -45,7 +240,7 @@ impl Solver {
             return Err(());
         }
         let mut ret = Vec::new();
-        self.solve_phase_1_recurse(
+        self.solve_phase_1_optimal_recurse(
             corner_orient_coord,
             flip_ud_slice_class_idx,
             flip_ud_slice_sym_idx,
@@ -55,7 +250,7 @@ impl Solver {
         Ok(ret)
     }
 
-    fn solve_phase_1_recurse(
+    fn solve_phase_1_optimal_recurse(
         &self,
         corner_orient_coord: u16,
         flip_ud_slice_class_idx: u16,
@@ -84,10 +279,81 @@ impl Solver {
             ) <= move_limit - 1
             {
                 solution.push(Move::from(move_action));
-                self.solve_phase_1_recurse(
+                self.solve_phase_1_optimal_recurse(
                     next_corner_orient_coord,
                     next_flip_ud_slice_class_idx,
                     next_flip_ud_slice_sym_idx,
+                    move_limit - 1,
+                    solution,
+                );
+                break;
+            }
+        }
+    }
+
+    fn solve_phase_2_optimal(
+        &self,
+        corner_perm_coord: u16,
+        phase2_edge_perm_coord: u16,
+        phase2_ud_slice_coord: u8,
+        move_limit: u8,
+    ) -> Result<Vec<Move>, ()> {
+        let (corner_perm_sym_class_idx, corner_perm_sym_idx) = self
+            .corner_perm_sym_table
+            .raw_coord_to_sym_coord(corner_perm_coord);
+
+        let optimal_depth = self.prune_table.get_phase_2_optimal_depth(
+            corner_perm_sym_class_idx,
+            corner_perm_sym_idx,
+            phase2_edge_perm_coord,
+        );
+        if optimal_depth > move_limit {
+            return Err(());
+        }
+        let mut ret = Vec::new();
+        self.solve_phase_2_optimal_recurse(
+            corner_perm_sym_class_idx,
+            corner_perm_sym_idx,
+            phase2_edge_perm_coord,
+            optimal_depth,
+            &mut ret,
+        );
+        Ok(ret)
+    }
+
+    fn solve_phase_2_optimal_recurse(
+        &self,
+        corner_perm_sym_class_idx: u16,
+        corner_perm_sym_idx: u8,
+        phase2_edge_perm_coord: u16,
+        move_limit: u8,
+        solution: &mut Vec<Move>,
+    ) {
+        if corner_perm_sym_class_idx == 0 && phase2_edge_perm_coord == 0 {
+            return;
+        }
+        for move_action in Move::G1PRESERVING {
+            let next_phase2_edge_perm_coord = self
+                .move_table
+                .get_next_phase2_edge_perm_coord(phase2_edge_perm_coord, move_action as u8);
+            let (next_corner_perm_sym_class_idx, next_corner_perm_sym_idx) =
+                self.move_table.get_next_corner_perm_sym_coord(
+                    corner_perm_sym_class_idx,
+                    corner_perm_sym_idx,
+                    move_action as u8,
+                );
+
+            if self.prune_table.get_phase_2_optimal_depth(
+                next_corner_perm_sym_class_idx,
+                next_corner_perm_sym_idx,
+                next_phase2_edge_perm_coord,
+            ) <= move_limit - 1
+            {
+                solution.push(Move::from(move_action));
+                self.solve_phase_2_optimal_recurse(
+                    next_corner_perm_sym_class_idx,
+                    next_corner_perm_sym_idx,
+                    next_phase2_edge_perm_coord,
                     move_limit - 1,
                     solution,
                 );
