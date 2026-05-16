@@ -75,6 +75,10 @@ impl Move {
         }
         Err(())
     }
+
+    pub fn is_same_class(move1: u8, move2: u8) -> bool {
+        move1/3 == move2/3
+    }
 }
 
 pub const U_MOVE: Cubie = Cubie {
