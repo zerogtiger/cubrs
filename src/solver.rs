@@ -47,6 +47,9 @@ impl Solver {
     }
 
     pub fn solve(&self, cube: &Cubie, move_limit: u8) -> Result<Vec<Move>, ()> {
+        if !cube.is_solvable() {
+            return Err(());
+        }
         let corner_orient_coord = cube.corner_orientation_coord();
         let edge_orient_coord = cube.edge_orientation_coord();
         let ud_slice_coord = cube.ud_slice_coord();
