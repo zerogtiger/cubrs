@@ -171,6 +171,52 @@ impl Cubie {
         moves.iter().fold(*self, |acc, &m| acc.apply_move(m))
     }
 
+    pub fn corner_perm_parity(&self) -> u8 {
+        let mut ret = 0;
+        for i in (0..8).rev() {
+            for j in (0..i).rev() {
+                if self.corner_permutation[j] > self.corner_permutation[i] {
+                    ret += 1;
+                }
+            }
+        }
+        ret % 2
+    }
+
+    pub fn edge_perm_parity(&self) -> u8 {
+        let mut ret = 0;
+        for i in (0..12).rev() {
+            for j in (0..i).rev() {
+                if self.edge_permutation[j] > self.edge_permutation[i] {
+                    ret += 1;
+                }
+            }
+        }
+        ret % 2
+    }
+
+    pub fn corner_orient_parity(&self) -> u8 {
+        let mut ret = 0;
+        for i in 0..8 {
+            ret += self.corner_orientation[i];
+        }
+        ret % 3
+    }
+
+    pub fn edge_orient_parity(&self) -> u8 {
+        let mut ret = 0;
+        for i in 0..12 {
+            ret += self.edge_orientation[i];
+        }
+        ret % 2
+    }
+
+    pub fn is_solvable(&self) -> bool {
+        self.edge_perm_parity() == self.corner_perm_parity()
+            && self.corner_orient_parity() == 0
+            && self.edge_orient_parity() == 0
+    }
+
     pub fn corner_orientation_coord(&self) -> u16 {
         let mut ret: u16 = 0;
         if let Some((last, rest)) = self.corner_orientation.split_last() {
