@@ -4,7 +4,10 @@ use std::sync::Arc;
 use crate::{
     cubie::{Cubie, MOVE_COUNT, PHASE2_UD_SLICE_COUNT, UD_SLICE_COUNT},
     moves::Move,
-    movetable::{CornerPermSymTable, FlipUDSliceTable, MoveTable, PruneTable},
+    movetable::{
+        CornerPermSymTable, Edge8PosConjugateTable, FlipUDSliceTable, MoveTable, PruneTable,
+        SymMoveTable, SymMultTable, TwistConjugateTable,
+    },
 };
 
 pub struct Solver {
@@ -15,12 +18,26 @@ pub struct Solver {
 }
 
 impl Solver {
-    pub fn new(
-        prune_table: Arc<PruneTable>,
-        move_table: Arc<MoveTable>,
-        flip_ud_slice_table: Arc<FlipUDSliceTable>,
-        corner_perm_sym_table: Arc<CornerPermSymTable>,
-    ) -> Self {
+    pub fn new() -> Self {
+        let sym_mult_table = Arc::new(SymMultTable::load_or_generate());
+        let sym_move_table = Arc::new(SymMoveTable::load_or_generate());
+        let flip_ud_slice_table = Arc::new(FlipUDSliceTable::load_or_generate());
+        let twist_conjugate_table = Arc::new(TwistConjugateTable::load_or_generate());
+        let corner_perm_sym_table = Arc::new(CornerPermSymTable::load_or_generate());
+        let edge8_pos_conjugate_table = Arc::new(Edge8PosConjugateTable::load_or_generate());
+        let move_table = Arc::new(MoveTable::load_or_generate(
+            &flip_ud_slice_table,
+            &corner_perm_sym_table,
+            sym_move_table,
+            sym_mult_table,
+        ));
+        let prune_table = Arc::new(PruneTable::load_or_generate(
+            &move_table,
+            twist_conjugate_table,
+            edge8_pos_conjugate_table,
+            flip_ud_slice_table.clone(),
+            corner_perm_sym_table.clone(),
+        ));
         Self {
             prune_table,
             move_table,
@@ -103,12 +120,8 @@ impl Solver {
             return false;
         }
         let last_move = match last_move {
-            Some(last_move) => {
-                last_move
-            }
-            None => {
-                u8::MAX
-            }
+            Some(last_move) => last_move,
+            None => u8::MAX,
         };
         for move_action in Move::ALL {
             if Move::is_same_class(move_action as u8, last_move) {
@@ -146,7 +159,7 @@ impl Solver {
                     orig_edge_orient,
                     orig_corner_perm,
                     orig_edge_perm,
-                    Some(move_action as u8)
+                    Some(move_action as u8),
                 ) {
                     return true;
                 }
