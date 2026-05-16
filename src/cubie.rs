@@ -355,6 +355,20 @@ impl Cubie {
     }
 
     pub fn is_solvable(&self) -> bool {
+        let mut corners_used = [false; 8];
+        let mut edges_used = [false; 12];
+        for corner in self.corner_permutation {
+            if corners_used[corner as usize] {
+                return false;
+            }
+            corners_used[corner as usize] = true;
+        }
+        for edge in self.edge_permutation {
+            if edges_used[edge as usize] {
+                return false;
+            }
+            edges_used[edge as usize] = true;
+        }
         self.edge_perm_parity() == self.corner_perm_parity()
             && self.corner_orient_parity() == 0
             && self.edge_orient_parity() == 0
