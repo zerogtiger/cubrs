@@ -21,7 +21,7 @@ impl CubeDisplay {
                 "\x1b[48;5;10m\x1b[38;5;0mG \x1b[0m",
                 "\x1b[48;5;11m\x1b[38;5;0mY \x1b[0m",
                 "\x1b[48;5;208m\x1b[38;5;0mO \x1b[0m",
-                "\x1b[48;5;4m\x1b[38;5;0mB \x1b[0m",
+                "\x1b[48;5;32m\x1b[38;5;0mB \x1b[0m",
             ],
             color_size: 2,
         }
