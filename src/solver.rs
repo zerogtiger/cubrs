@@ -2,7 +2,10 @@ use core::convert::From;
 use std::sync::Arc;
 
 use crate::{
-    cubie::{Cubie, MOVE_COUNT, PHASE2_UD_SLICE_COUNT, UD_SLICE_COUNT},
+    cubie::{
+        CORNER_ORIENTATION_COUNT, CORNER_PERMUTATION_COUNT, Cubie, EDGE_ORIENTATION_COUNT,
+        EDGE_PERMUTATION_COUNT, MOVE_COUNT, PHASE2_UD_SLICE_COUNT, UD_SLICE_COUNT,
+    },
     moves::Move,
     movetable::{
         CornerPermSymTable, Edge8PosConjugateTable, FlipUDSliceTable, MoveTable, PruneTable,
@@ -43,6 +46,25 @@ impl Solver {
             move_table,
             flip_ud_slice_table,
             corner_perm_sym_table,
+        }
+    }
+
+    pub fn generate_scramble(&self, move_limit: u8) -> (Cubie, Vec<Move>) {
+        loop {
+            let mut cube: Cubie = Default::default();
+            let co = rand::random_range(0..CORNER_ORIENTATION_COUNT);
+            let eo = rand::random_range(0..EDGE_ORIENTATION_COUNT);
+            let cp = rand::random_range(0..CORNER_PERMUTATION_COUNT);
+            let ep = rand::random_range(0..EDGE_PERMUTATION_COUNT);
+            cube.set_corner_orientation_coord(co);
+            cube.set_corner_permutation_coord(cp);
+            cube.set_edge_orientation_coord(eo);
+            cube.set_edge_permutation_coord(ep);
+            if cube.is_solvable() {
+                let mut sol = self.solve(&cube, move_limit).unwrap();
+                Move::invert_moves(&mut sol);
+                return (cube, sol);
+            }
         }
     }
 
