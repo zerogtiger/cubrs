@@ -117,6 +117,29 @@ impl Move {
         }
     }
 
+    pub fn inverse_move(&self) -> Move {
+        match self {
+            U => U3,
+            U3 => U,
+            D => D3,
+            D3 => D,
+            R => R3,
+            R3 => R,
+            L => L3,
+            L3 => L,
+            F => F3,
+            F3 => F,
+            B => B3,
+            B3 => B,
+            _ => *self,
+        }
+    }
+
+    pub fn invert_moves(move_list: &mut Vec<Move>) {
+        move_list.reverse();
+        move_list.iter_mut().for_each(|m| *m = m.inverse_move());
+    }
+
     pub fn move_cubie_to_move_action(move_cubie: &Cubie) -> Result<Move, ()> {
         for move_action in Self::ALL {
             if Self::move_action_to_move_cubie(move_action) == *move_cubie {
