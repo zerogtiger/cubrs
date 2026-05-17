@@ -1,4 +1,4 @@
-use std::io::{BufReader, BufWriter, Read, Write};
+use std::io::{BufReader, BufWriter, Read, Write, stdout};
 
 use core::{
     assert,
@@ -11,6 +11,11 @@ use core::{
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::{collections::HashMap, fs::File};
+
+use crossterm::{
+    cursor, execute,
+    terminal::{Clear, ClearType, disable_raw_mode, enable_raw_mode},
+};
 
 use crate::{
     cubie::*,
@@ -40,34 +45,58 @@ fn load_vec<T: bytemuck::Pod + Default + Clone>(path: &str) -> Vec<T> {
     vec
 }
 
-fn save_hashmap(path: &str, map: &HashMap<u32, u16>) {
+fn save_hashmap<K, V>(path: &str, map: &HashMap<K, V>)
+where
+    K: bytemuck::Pod + bytemuck::Zeroable,
+    V: bytemuck::Pod + bytemuck::Zeroable,
+{
     let p = std::path::Path::new(path);
-
     if let Some(parent) = p.parent() {
         std::fs::create_dir_all(parent).unwrap();
     }
     let mut f = BufWriter::new(File::create(path).unwrap());
     f.write_all(&(map.len() as u64).to_le_bytes()).unwrap();
     for (k, v) in map.iter() {
-        f.write_all(&k.to_le_bytes()).unwrap();
-        f.write_all(&v.to_le_bytes()).unwrap();
+        f.write_all(bytemuck::bytes_of(k)).unwrap();
+        f.write_all(bytemuck::bytes_of(v)).unwrap();
     }
 }
 
-fn load_hashmap(path: &str) -> HashMap<u32, u16> {
+fn load_hashmap<K, V>(path: &str) -> HashMap<K, V>
+where
+    K: bytemuck::Pod + bytemuck::Zeroable + Eq + std::hash::Hash,
+    V: bytemuck::Pod + bytemuck::Zeroable,
+{
     let mut f = BufReader::new(File::open(path).unwrap());
     let mut len_bytes = [0u8; 8];
     f.read_exact(&mut len_bytes).unwrap();
     let len = u64::from_le_bytes(len_bytes) as usize;
     let mut map = HashMap::with_capacity(len);
+    let k_size = std::mem::size_of::<K>();
+    let v_size = std::mem::size_of::<V>();
     for _ in 0..len {
-        let mut k = [0u8; 4];
-        let mut v = [0u8; 2];
-        f.read_exact(&mut k).unwrap();
-        f.read_exact(&mut v).unwrap();
-        map.insert(u32::from_le_bytes(k), u16::from_le_bytes(v));
+        let mut k_bytes = vec![0u8; k_size];
+        let mut v_bytes = vec![0u8; v_size];
+        f.read_exact(&mut k_bytes).unwrap();
+        f.read_exact(&mut v_bytes).unwrap();
+        let k = *bytemuck::from_bytes::<K>(&k_bytes);
+        let v = *bytemuck::from_bytes::<V>(&v_bytes);
+        map.insert(k, v);
     }
     map
+}
+
+fn raw_mode_print(str: &str) {
+    enable_raw_mode().unwrap();
+    execute!(
+        stdout(),
+        cursor::MoveToColumn(0),
+        Clear(ClearType::CurrentLine)
+    )
+    .unwrap();
+    print!("{}", str);
+    stdout().flush().unwrap();
+    disable_raw_mode().unwrap();
 }
 
 // S(i) * M * S(i)^-1, where M: move; i: sym index
@@ -85,8 +114,11 @@ impl SymMoveTable {
         let mut ret = Self {
             sym_move_table: Vec::new(),
         };
+        raw_mode_print("Generating sym move table");
         ret.generate_tables();
         save_vec("tables/sym_move_table.bin", &ret.sym_move_table);
+        raw_mode_print("sym move table generated: stored at tables/sym_move_table.bin");
+        println!("");
         ret
     }
 
@@ -139,8 +171,11 @@ impl SymMultTable {
         let mut ret = Self {
             sym_mult_table: Vec::new(),
         };
+        raw_mode_print("Generating sym mult table");
         ret.generate_tables();
         save_vec("tables/sym_mult_table.bin", &ret.sym_mult_table);
+        raw_mode_print("sym mult table generated: stored at tables/sym_mult_table.bin");
+        println!("");
         ret
     }
 
@@ -196,6 +231,7 @@ impl FlipUDSliceTable {
             rep_encoded_raw_coord_to_class_idx: HashMap::new(),
             class_idx_to_sym_state: Vec::new(),
         };
+        raw_mode_print("Generating flip ud slice tables");
         ret.generate_tables();
         save_vec(
             "tables/flip_ud_class_to_rep.bin",
@@ -209,6 +245,8 @@ impl FlipUDSliceTable {
             "tables/flip_ud_class_to_sym.bin",
             &ret.class_idx_to_sym_state,
         );
+        raw_mode_print("flip ud slice table generated: tables/flip_ud_*.bin");
+        println!("");
         ret
     }
 
@@ -330,12 +368,39 @@ pub struct CornerPermSymTable {
 
 impl CornerPermSymTable {
     pub fn load_or_generate() -> Self {
+        if std::path::Path::new("tables/corner_perm_sym_class_idx_to_rep.bin").exists()
+            && std::path::Path::new("tables/corner_perm_sym_rep_to_class_idx.bin").exists()
+            && std::path::Path::new("tables/corner_perm_sym_class_idx_to_sym.bin").exists()
+        {
+            return Self {
+                class_idx_to_rep_raw_coord: load_vec("tables/corner_perm_sym_class_idx_to_rep.bin"),
+                rep_raw_coord_to_class_idx: load_hashmap(
+                    "tables/corner_perm_sym_rep_to_class_idx.bin",
+                ),
+                class_idx_to_sym_state: load_vec("tables/corner_perm_sym_class_idx_to_sym.bin"),
+            };
+        }
         let mut ret = Self {
             class_idx_to_rep_raw_coord: Vec::new(),
             rep_raw_coord_to_class_idx: HashMap::new(),
             class_idx_to_sym_state: Vec::new(),
         };
+        raw_mode_print("Generating corner perm sym table");
         ret.generate_table();
+        save_vec(
+            "tables/corner_perm_sym_class_idx_to_rep.bin",
+            &ret.class_idx_to_rep_raw_coord,
+        );
+        save_hashmap(
+            "tables/corner_perm_sym_rep_to_class_idx.bin",
+            &ret.rep_raw_coord_to_class_idx,
+        );
+        save_vec(
+            "tables/corner_perm_sym_class_idx_to_sym.bin",
+            &ret.class_idx_to_sym_state,
+        );
+        raw_mode_print("corner perm sym table generated: stored at tables/corner_perm_sym_*.bin");
+        println!("");
         ret
     }
 
@@ -461,6 +526,7 @@ impl MoveTable {
             phase2_ud_slice_table: Default::default(),
         };
 
+        raw_mode_print("Generating move table, this may take a few seconds");
         // phase 1
         Self::generate_move_table(
             &mut table.corner_orient_table,
@@ -530,6 +596,8 @@ impl MoveTable {
             "tables/move_phase2_ud_slice.bin",
             &table.phase2_ud_slice_table,
         );
+        raw_mode_print("move table generated: stored at tables/move_*.bin");
+        println!("");
         table
     }
 
@@ -659,8 +727,11 @@ impl TwistConjugateTable {
         let mut ret = Self {
             twist_conjugate: Default::default(),
         };
+        raw_mode_print("Generating twist conjugate table");
         ret.generate_tables();
         save_vec("tables/twist_conjugate.bin", &ret.twist_conjugate);
+        raw_mode_print("sym move table generated: stored at tables/twist_conjugate.bin");
+        println!("");
         ret
     }
 
@@ -705,11 +776,16 @@ impl Edge8PosConjugateTable {
         let mut ret = Self {
             edge8_pos_conjugate_table: Vec::new(),
         };
+        raw_mode_print("Generating edge 8 pos conjugate table");
         ret.generate_tables();
         save_vec(
             "tables/edge8_pos_conjugate.bin",
             &ret.edge8_pos_conjugate_table,
         );
+        raw_mode_print(
+            "edge8 pos conjugate table generated: stored at tables/edge8_pos_conjugate.bin",
+        );
+        println!("");
         ret
     }
 
@@ -784,10 +860,21 @@ impl PruneTable {
             flip_ud_slice_table,
             corner_perm_sym_table,
         };
+
+        raw_mode_print("Generating prune tables, this may take a few minutes");
+        println!("");
+        raw_mode_print("Phase 1/2: ");
+        println!("");
         ret.generate_phase1_prune_table(move_table);
-        ret.generate_phase2_prune_table(move_table);
         save_vec("tables/phase_1_prune.bin", &ret.phase1_table);
+        raw_mode_print("phase 1 prune table generated: stored at tables/phase_1_prune.bin");
+        println!("");
+        raw_mode_print("Phase 2/2: ");
+        println!("");
+        ret.generate_phase2_prune_table(move_table);
         save_vec("tables/phase_2_prune.bin", &ret.phase2_table);
+        raw_mode_print("phase 2 prune table generated: stored at tables/phase_2_prune.bin");
+        println!("");
         ret
     }
 
@@ -886,7 +973,7 @@ impl PruneTable {
             curr += 1;
             if curr / 1_000_000 != old {
                 old += 1;
-                println!("{old}");
+                raw_mode_print(&format!("{old}/138"));
             }
             let (curr_corner_orient, curr_flip_ud_class_idx) = q.pop_front().unwrap();
             let curr_depth = self.get_phase1_table(curr_corner_orient, curr_flip_ud_class_idx);
@@ -930,8 +1017,8 @@ impl PruneTable {
                 }
             }
         }
-        println!("Max depth: {max_depth}");
-        println!("Distribution: {distribution:?}");
+        // println!("Max depth: {max_depth}");
+        // println!("Distribution: {distribution:?}");
     }
 
     fn generate_phase2_prune_table(&mut self, move_table: &MoveTable) {
@@ -954,7 +1041,7 @@ impl PruneTable {
             curr += 1;
             if curr / 1_000_000 != old {
                 old += 1;
-                println!("{old}");
+                raw_mode_print(&format!("{old}/101"));
             }
 
             let (curr_corner_perm_sym, curr_phase2_edge_perm) = q.pop_front().unwrap();
@@ -1005,7 +1092,7 @@ impl PruneTable {
                 }
             }
         }
-        println!("Max depth: {max_depth}");
-        println!("Distribution: {distribution:?}");
+        // println!("Max depth: {max_depth}");
+        // println!("Distribution: {distribution:?}");
     }
 }
