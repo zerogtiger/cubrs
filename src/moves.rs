@@ -1,4 +1,6 @@
 use core::assert;
+use core::fmt;
+use std::str::FromStr;
 
 use crate::cubie::Corner::*;
 use crate::cubie::CornerOrientation::*;
@@ -35,6 +37,54 @@ pub enum Move {
     R,
     R2,
     R3,
+}
+
+impl FromStr for Move {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_uppercase().as_str() {
+            "R" => Ok(R),
+            "R'" => Ok(R3),
+            "R3" => Ok(R3),
+            "R2" => Ok(R2),
+            "L" => Ok(L),
+            "L'" => Ok(L3),
+            "L3" => Ok(L3),
+            "L2" => Ok(L2),
+            "U" => Ok(U),
+            "U'" => Ok(U3),
+            "U3" => Ok(U3),
+            "U2" => Ok(U2),
+            "D" => Ok(D),
+            "D'" => Ok(D3),
+            "D3" => Ok(D3),
+            "D2" => Ok(D2),
+            "F" => Ok(F),
+            "F'" => Ok(F3),
+            "F3" => Ok(F3),
+            "F2" => Ok(F2),
+            "B" => Ok(B),
+            "B'" => Ok(B3),
+            "B3" => Ok(B3),
+            "B2" => Ok(B2),
+            _ => Err(()),
+        }
+    }
+}
+
+impl fmt::Display for Move {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            U3 => write!(f, "U'"),
+            D3 => write!(f, "D'"),
+            R3 => write!(f, "R'"),
+            L3 => write!(f, "L'"),
+            F3 => write!(f, "F'"),
+            B3 => write!(f, "B'"),
+            _ => write!(f, "{:?}", self),
+        }
+    }
 }
 
 impl Move {
@@ -78,6 +128,12 @@ impl Move {
 
     pub fn is_same_class(move1: u8, move2: u8) -> bool {
         move1/3 == move2/3
+    }
+
+    pub fn move_list_from_str(moves: &str) -> Result<Vec<Move>, ()> {
+        moves.split_whitespace()
+            .map(|word| Move::from_str(word))
+            .collect()
     }
 }
 
