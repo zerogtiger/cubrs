@@ -2,6 +2,8 @@
 
 A fast Rubik's cube solver implemented in Rust using Kociemba's two-phase algorithm, with a terminal-based speedcubing timer.
 
+![screenshot](screenshot.png)
+
 ## Usage
 
 ### As a Speedcubing Timer
