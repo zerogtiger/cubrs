@@ -23,6 +23,7 @@ use crate::{
 };
 
 fn main() {
+    println!("== Cubrs ==");
     let solver = Solver::new();
     let cube_display = CubeDisplay::default_colors();
     loop {
@@ -42,6 +43,8 @@ fn main() {
                 Clear(ClearType::CurrentLine)
             )
             .unwrap();
+            print!("\"q\" to quit; spacebar to ready");
+            stdout().flush().unwrap();
             if let Event::Key(event) = event::read().unwrap() {
                 if event.code == KeyCode::Char('q') {
                     disable_raw_mode().unwrap();
@@ -55,7 +58,7 @@ fn main() {
                         Clear(ClearType::CurrentLine)
                     )
                     .unwrap();
-                    print!("Ready");
+                    print!("Ready: \"q\" to cancel; spacebar to start");
                     stdout().flush().unwrap();
                     loop {
                         if let Event::Key(event) = event::read().unwrap() {
