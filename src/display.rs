@@ -1,4 +1,4 @@
-use crate::facelet::{Color, Facelet};
+use crate::{cubie::Cubie, facelet::{Color, Facelet}};
 
 pub struct CubeDisplay {
     colors: [char; 6], // Color of U, R, F, D, L, B
@@ -20,7 +20,11 @@ impl CubeDisplay {
         }]
     }
 
-    pub fn display_cube(&self, facelet: &Facelet) {
+    pub fn display_cubie(&self, cubie: &Cubie) {
+        self.display_facelet(&Facelet::from_cubie(&cubie));
+    }
+
+    pub fn display_facelet(&self, facelet: &Facelet) {
         for i in 0..3 {
             print!(". . . ");
             for j in 0..3 {
