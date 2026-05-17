@@ -5,4 +5,5 @@ edition = "2024"
 
 [dependencies]
 bytemuck = "1.25.0"
+crossterm = "0.29.0"
 rand = "0.10.1"
