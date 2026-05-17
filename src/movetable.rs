@@ -597,11 +597,7 @@ impl MoveTable {
         )
     }
 
-    pub fn get_next_phase2_ud_slice_coord(
-        &self,
-        phase2_ud_slice_coord: u8,
-        move_action: u8,
-    ) -> u8 {
+    pub fn get_next_phase2_ud_slice_coord(&self, phase2_ud_slice_coord: u8, move_action: u8) -> u8 {
         Self::get_next_coord(
             &self.phase2_ud_slice_table,
             phase2_ud_slice_coord as usize,
