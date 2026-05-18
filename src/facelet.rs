@@ -136,19 +136,19 @@ impl Facelet {
     pub fn from_cubie(cubie: &Cubie) -> Self {
         let mut ret = Self::new();
         for (original_idx, (corner, orientation)) in
-            zip(cubie.corner_permutation, cubie.corner_orientation).enumerate()
+            zip(cubie.get_corner_permutation_list(), cubie.get_corner_orientation_list()).enumerate()
         {
             for (face_idx, color) in CORNER_FACES[original_idx].iter().enumerate() {
                 ret.faces[u8::from(*color) as usize] =
-                    CORNER_FACES[corner as usize][(face_idx + 3 - orientation as usize) % 3];
+                    CORNER_FACES[*corner as usize][(face_idx + 3 - *orientation as usize) % 3];
             }
         }
         for (original_idx, (edge, orientation)) in
-            zip(cubie.edge_permutation, cubie.edge_orientation).enumerate()
+            zip(cubie.get_edge_permutation_list(), cubie.get_edge_orientation_list()).enumerate()
         {
             for (face_idx, color) in EDGE_FACES[original_idx].iter().enumerate() {
                 ret.faces[u8::from(*color) as usize] =
-                    EDGE_FACES[edge as usize][(face_idx + orientation as usize) % 2];
+                    EDGE_FACES[*edge as usize][(face_idx + *orientation as usize) % 2];
             }
         }
         ret

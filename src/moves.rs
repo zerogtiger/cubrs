@@ -160,49 +160,49 @@ impl Move {
     }
 }
 
-pub const U_MOVE: Cubie = Cubie {
+pub const U_MOVE: Cubie = Cubie::from_u8_arrays(
     // URF, ULF, ULB, URB, DRF, DLF, DLB, DRB,
-    corner_permutation: map_to_u8![URB, URF, ULF, ULB, DRF, DLF, DLB, DRB],
-    corner_orientation: [0, 0, 0, 0, 0, 0, 0, 0],
+    map_to_u8![URB, URF, ULF, ULB, DRF, DLF, DLB, DRB],
+    [0, 0, 0, 0, 0, 0, 0, 0],
     // UR, UF, UL, UB, DR, DF, DL, DB, FR, FL, BL, BR,
-    edge_permutation: map_to_u8![UB, UR, UF, UL, DR, DF, DL, DB, FR, FL, BL, BR],
-    edge_orientation: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-};
+    map_to_u8![UB, UR, UF, UL, DR, DF, DL, DB, FR, FL, BL, BR],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+);
 
-pub const D_MOVE: Cubie = Cubie {
-    corner_permutation: map_to_u8![URF, ULF, ULB, URB, DLF, DLB, DRB, DRF],
-    corner_orientation: [0, 0, 0, 0, 0, 0, 0, 0],
-    edge_permutation: map_to_u8![UR, UF, UL, UB, DF, DL, DB, DR, FR, FL, BL, BR],
-    edge_orientation: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-};
+pub const D_MOVE: Cubie = Cubie::from_u8_arrays(
+    map_to_u8![URF, ULF, ULB, URB, DLF, DLB, DRB, DRF],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    map_to_u8![UR, UF, UL, UB, DF, DL, DB, DR, FR, FL, BL, BR],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+);
 
-pub const R_MOVE: Cubie = Cubie {
-    corner_permutation: map_to_u8![DRF, ULF, ULB, URF, DRB, DLF, DLB, URB],
-    corner_orientation: map_to_u8![CCW, No, No, CW, CW, No, No, CCW],
-    edge_permutation: map_to_u8![FR, UF, UL, UB, BR, DF, DL, DB, DR, FL, BL, UR],
-    edge_orientation: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-};
+pub const R_MOVE: Cubie = Cubie::from_u8_arrays(
+    map_to_u8![DRF, ULF, ULB, URF, DRB, DLF, DLB, URB],
+    map_to_u8![CCW, No, No, CW, CW, No, No, CCW],
+    map_to_u8![FR, UF, UL, UB, BR, DF, DL, DB, DR, FL, BL, UR],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+);
 
-pub const L_MOVE: Cubie = Cubie {
-    corner_permutation: map_to_u8![URF, ULB, DLB, URB, DRF, ULF, DLF, DRB],
-    corner_orientation: map_to_u8![No, CW, CCW, No, No, CCW, CW, No],
-    edge_permutation: map_to_u8![UR, UF, BL, UB, DR, DF, FL, DB, FR, UL, DL, BR],
-    edge_orientation: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-};
+pub const L_MOVE: Cubie = Cubie::from_u8_arrays(
+    map_to_u8![URF, ULB, DLB, URB, DRF, ULF, DLF, DRB],
+    map_to_u8![No, CW, CCW, No, No, CCW, CW, No],
+    map_to_u8![UR, UF, BL, UB, DR, DF, FL, DB, FR, UL, DL, BR],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+);
 
-pub const F_MOVE: Cubie = Cubie {
-    corner_permutation: map_to_u8![ULF, DLF, ULB, URB, URF, DRF, DLB, DRB],
-    corner_orientation: map_to_u8![CW, CCW, No, No, CCW, CW, No, No],
-    edge_permutation: map_to_u8![UR, FL, UL, UB, DR, FR, DL, DB, UF, DF, BL, BR],
-    edge_orientation: [0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0],
-};
+pub const F_MOVE: Cubie = Cubie::from_u8_arrays(
+    map_to_u8![ULF, DLF, ULB, URB, URF, DRF, DLB, DRB],
+    map_to_u8![CW, CCW, No, No, CCW, CW, No, No],
+    map_to_u8![UR, FL, UL, UB, DR, FR, DL, DB, UF, DF, BL, BR],
+    [0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0],
+);
 
-pub const B_MOVE: Cubie = Cubie {
-    corner_permutation: map_to_u8![URF, ULF, URB, DRB, DRF, DLF, ULB, DLB],
-    corner_orientation: map_to_u8![No, No, CW, CCW, No, No, CCW, CW],
-    edge_permutation: map_to_u8![UR, UF, UL, BR, DR, DF, DL, BL, FR, FL, UB, DB],
-    edge_orientation: [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1],
-};
+pub const B_MOVE: Cubie = Cubie::from_u8_arrays(
+    map_to_u8![URF, ULF, URB, DRB, DRF, DLF, ULB, DLB],
+    map_to_u8![No, No, CW, CCW, No, No, CCW, CW],
+    map_to_u8![UR, UF, UL, BR, DR, DF, DL, BL, FR, FL, UB, DB],
+    [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1],
+);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SymMove {
@@ -260,23 +260,23 @@ impl SymMove {
     }
 }
 
-pub const S_F2_MOVE: Cubie = Cubie {
-    corner_permutation: map_to_u8![DLF, DRF, DRB, DLB, ULF, URF, URB, ULB],
-    edge_permutation: map_to_u8![DL, DF, DR, DB, UL, UF, UR, UB, FL, FR, BR, BL],
-    corner_orientation: [0, 0, 0, 0, 0, 0, 0, 0],
-    edge_orientation: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-};
+pub const S_F2_MOVE: Cubie = Cubie::from_u8_arrays(
+    map_to_u8![DLF, DRF, DRB, DLB, ULF, URF, URB, ULB],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    map_to_u8![DL, DF, DR, DB, UL, UF, UR, UB, FL, FR, BR, BL],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+);
 
-pub const S_U4_MOVE: Cubie = Cubie {
-    corner_permutation: map_to_u8![URB, URF, ULF, ULB, DRB, DRF, DLF, DLB],
-    edge_permutation: map_to_u8![UB, UR, UF, UL, DB, DR, DF, DL, BR, FR, FL, BL],
-    corner_orientation: [0, 0, 0, 0, 0, 0, 0, 0],
-    edge_orientation: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
-};
+pub const S_U4_MOVE: Cubie = Cubie::from_u8_arrays(
+    map_to_u8![URB, URF, ULF, ULB, DRB, DRF, DLF, DLB],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    map_to_u8![UB, UR, UF, UL, DB, DR, DF, DL, BR, FR, FL, BL],
+    [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+);
 
-pub const S_LR2_MOVE: Cubie = Cubie {
-    corner_permutation: map_to_u8![ULF, URF, URB, ULB, DLF, DRF, DRB, DLB],
-    edge_permutation: map_to_u8![UL, UF, UR, UB, DL, DF, DR, DB, FL, FR, BR, BL],
-    corner_orientation: [3, 3, 3, 3, 3, 3, 3, 3],
-    edge_orientation: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-};
+pub const S_LR2_MOVE: Cubie = Cubie::from_u8_arrays(
+    map_to_u8![ULF, URF, URB, ULB, DLF, DRF, DRB, DLB],
+    [3, 3, 3, 3, 3, 3, 3, 3],
+    map_to_u8![UL, UF, UR, UB, DL, DF, DR, DB, FL, FR, BR, BL],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+);

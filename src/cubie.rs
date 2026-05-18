@@ -209,10 +209,10 @@ impl TryFrom<u8> for EdgeOrientation {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Cubie {
-    pub corner_permutation: [u8; 8],
-    pub edge_permutation: [u8; 12],
-    pub corner_orientation: [u8; 8],
-    pub edge_orientation: [u8; 12],
+    corner_permutation: [u8; 8],
+    edge_permutation: [u8; 12],
+    corner_orientation: [u8; 8],
+    edge_orientation: [u8; 12],
 }
 
 impl Cubie {
@@ -228,6 +228,36 @@ impl Cubie {
             edge_permutation: edge_permutation.map(|c| c as u8),
             edge_orientation: edge_orientation.map(|c| c as u8),
         }
+    }
+
+    pub const fn from_u8_arrays(
+        corner_permutation: [u8; 8],
+        corner_orientation: [u8; 8],
+        edge_permutation: [u8; 12],
+        edge_orientation: [u8; 12],
+    ) -> Self {
+        Cubie {
+            corner_permutation,
+            corner_orientation,
+            edge_permutation,
+            edge_orientation,
+        }
+    }
+
+    pub fn get_corner_permutation_list(&self) -> &[u8; 8] {
+        &self.corner_permutation
+    }
+
+    pub fn get_edge_permutation_list(&self) -> &[u8; 12] {
+        &self.edge_permutation
+    }
+
+    pub fn get_corner_orientation_list(&self) -> &[u8; 8] {
+        &self.corner_orientation
+    }
+
+    pub fn get_edge_orientation_list(&self) -> &[u8; 12] {
+        &self.edge_orientation
     }
 
     pub fn from_string(spec: &str) -> Result<Self, ()> {
