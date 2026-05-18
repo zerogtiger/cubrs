@@ -5,7 +5,6 @@ use std::str::FromStr;
 use crate::cubie::Corner::*;
 use crate::cubie::CornerOrientation::*;
 use crate::cubie::Edge::*;
-use crate::cubie::EdgeOrientation::*;
 use crate::cubie::*;
 use Move::*;
 use SymMove::*;

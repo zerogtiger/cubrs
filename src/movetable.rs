@@ -3,10 +3,8 @@ use std::io::{BufReader, BufWriter, Read, Write, stdout};
 use core::{
     assert,
     cmp::max,
-    convert::{Into, TryFrom},
-    default,
+    convert::TryFrom,
     fmt::Debug,
-    usize,
 };
 use std::collections::VecDeque;
 use std::sync::Arc;

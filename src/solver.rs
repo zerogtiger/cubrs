@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::{
     cubie::{
         CORNER_ORIENTATION_COUNT, CORNER_PERMUTATION_COUNT, Cubie, EDGE_ORIENTATION_COUNT,
-        EDGE_PERMUTATION_COUNT, MOVE_COUNT, PHASE2_UD_SLICE_COUNT, UD_SLICE_COUNT,
+        EDGE_PERMUTATION_COUNT,
     },
     moves::Move,
     movetable::{
@@ -333,7 +333,7 @@ impl Solver {
         &self,
         corner_perm_coord: u16,
         phase2_edge_perm_coord: u16,
-        phase2_ud_slice_coord: u8,
+        _phase2_ud_slice_coord: u8,
         move_limit: u8,
     ) -> Result<Vec<Move>, ()> {
         let (corner_perm_sym_class_idx, corner_perm_sym_idx) = self

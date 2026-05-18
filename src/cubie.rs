@@ -1,12 +1,8 @@
-use crate::display::CubeDisplay;
 use crate::facelet::{CORNER_FACES, Color, EDGE_FACES, Facelet};
 use crate::moves::Move;
-use crate::moves::{B_MOVE, D_MOVE, F_MOVE, L_MOVE, Move::*, R_MOVE, U_MOVE};
+use core::assert;
 use core::iter::Iterator;
-use core::{assert, todo};
 use std::collections::HashMap;
-use std::default;
-use std::iter::zip;
 use std::ops::Mul;
 
 pub const FACTORIAL: [u32; 13] = [
@@ -376,7 +372,7 @@ impl Cubie {
 
     pub fn corner_orientation_coord(&self) -> u16 {
         let mut ret: u16 = 0;
-        if let Some((last, rest)) = self.corner_orientation.split_last() {
+        if let Some((_, rest)) = self.corner_orientation.split_last() {
             for &orientation in rest {
                 ret = ret * 3 + (orientation % 3) as u16;
             }
@@ -386,7 +382,7 @@ impl Cubie {
 
     pub fn edge_orientation_coord(&self) -> u16 {
         let mut ret: u16 = 0;
-        if let Some((last, rest)) = self.edge_orientation.split_last() {
+        if let Some((_, rest)) = self.edge_orientation.split_last() {
             for &orientation in rest {
                 ret = ret * 2 + orientation as u16;
             }
