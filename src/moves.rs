@@ -152,6 +152,10 @@ impl Move {
         move1 / 3 == move2 / 3
     }
 
+    pub fn is_same_dimension(move1: u8, move2: u8) -> bool {
+        move1 / 6 == move2 / 6
+    }
+
     pub fn move_list_from_str(moves: &str) -> Result<Vec<Move>, ()> {
         moves
             .split_whitespace()

@@ -98,6 +98,7 @@ impl Solver {
                 cube.corner_permutation_coord(),
                 cube.edge_permutation_coord(),
                 None,
+                None,
             ) {
                 return Ok(solution);
             }
@@ -118,7 +119,8 @@ impl Solver {
         orig_edge_orient: u16,
         orig_corner_perm: u16,
         orig_edge_perm: u32,
-        last_move: Option<u8>,
+        last_move2: Option<u8>, // move before most recent move
+        last_move1: Option<u8>, // most recent move
     ) -> bool {
         if corner_orient_coord == 0 && flip_ud_slice_class_idx == 0 && remaining_move_count == 0 {
             let mut cube = Cubie::default();
@@ -138,20 +140,31 @@ impl Solver {
                 cube.phase2_ud_slice_coord(),
                 phase_2_move_limit,
                 solution,
-                // last_move,
+                last_move2,
+                last_move1
             );
         }
         if remaining_move_count == 0 {
             return false;
         }
-        let last_move = match last_move {
-            Some(last_move) => last_move,
-            None => u8::MAX,
-        };
         for move_action in Move::ALL {
-            if Move::is_same_class(move_action as u8, last_move) {
-                continue;
-            }
+            let is_last_move1_same_dimension: bool = match last_move1 {
+                Some(last_move) => {
+                    if Move::is_same_class(move_action as u8, last_move) {
+                        continue;
+                    }
+                    Move::is_same_dimension(move_action as u8, last_move)
+                }
+                _ => false
+            };
+            match last_move2 {
+                Some(last_move) => {
+                    if is_last_move1_same_dimension && Move::is_same_dimension(move_action as u8, last_move) {
+                        continue;
+                    }
+                }
+                _ => {}
+            };
             let next_corner_orient_coord = self
                 .move_table
                 .get_next_corner_orient_coord(corner_orient_coord, move_action as u8);
@@ -184,6 +197,7 @@ impl Solver {
                     orig_edge_orient,
                     orig_corner_perm,
                     orig_edge_perm,
+                    last_move1,
                     Some(move_action as u8),
                 ) {
                     return true;
@@ -202,9 +216,10 @@ impl Solver {
         phase2_ud_slice_coord: u8,
         remaining_move_count: u8,
         solution: &mut Vec<Move>,
-        // last_move: Option<u8>
+        last_move2: Option<u8>, // move before most recent move
+        last_move1: Option<u8>, // most recent move
     ) -> bool {
-        if corner_perm_sym_idx == 0 && phase2_edge_perm_coord == 0 && phase2_ud_slice_coord == 0 {
+        if corner_perm_sym_class_idx == 0 && phase2_edge_perm_coord == 0 && phase2_ud_slice_coord == 0 {
             return true;
         }
         if remaining_move_count == 0 {
@@ -219,9 +234,23 @@ impl Solver {
         //     }
         // };
         for move_action in Move::G1PRESERVING {
-            // if Move::is_same_class(move_action as u8, last_move) {
-            //     continue;
-            // }
+            let is_last_move1_same_dimension: bool = match last_move1 {
+                Some(last_move) => {
+                    if Move::is_same_class(move_action as u8, last_move) {
+                        continue;
+                    }
+                    Move::is_same_dimension(move_action as u8, last_move)
+                }
+                _ => false
+            };
+            match last_move2 {
+                Some(last_move) => {
+                    if is_last_move1_same_dimension && Move::is_same_dimension(move_action as u8, last_move) {
+                        continue;
+                    }
+                }
+                _ => {}
+            };
             let next_phase2_edge_perm_coord = self
                 .move_table
                 .get_next_phase2_edge_perm_coord(phase2_edge_perm_coord, move_action as u8);
@@ -248,7 +277,8 @@ impl Solver {
                     next_phase2_ud_slice_coord,
                     remaining_move_count - 1,
                     solution,
-                    // Some(move_action as u8)
+                    last_move1,
+                    Some(move_action as u8),
                 ) {
                     return true;
                 }
