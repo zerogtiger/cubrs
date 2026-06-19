@@ -224,7 +224,14 @@ Requires Rust 1.70+. Tables are generated automatically on first run and stored 
 - [ ] Even faster solver: pruning table for phase 2 UD slice
 - [ ] WCA Ao5 and Ao12 statistics for timer
 
-## References
+## Development notes
+```bash
+# Save a baseline performance
+cargo bench --bench solver_benchmark -- --save-baseline "original_approach"
+# Bench current against baseline
+cargo bench --bench solver_benchmark -- --baseline "original_approach"
+```
 
+## References
 - [Kociemba's algorithm description](https://kociemba.org/cube.htm)
 - [Cube Explorer (Kociemba's reference implementation)](https://kociemba.org/download.htm)

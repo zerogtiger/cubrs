@@ -1,10 +1,3 @@
-pub mod cubie;
-pub mod display;
-pub mod facelet;
-pub mod moves;
-pub mod movetable;
-pub mod solver;
-
 use crossterm::{
     cursor,
     event::{self, Event, KeyCode, KeyEventKind},
@@ -17,15 +10,19 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{
-    display::CubeDisplay,
-    solver::Solver,
+
+use cube_timer::{
+    cubie::Cubie, display::CubeDisplay, moves::Move, solver::Solver
 };
 
-fn main() {
+fn timer() {
     println!("== Cubrs ==");
+    // let mut cube = Cubie::default();
+    // cube = cube.apply_moves(&Move::move_list_from_str("B' L D U' B F' D' L' F' D L' D B' U'").unwrap());
+
     let solver = Solver::new();
     let cube_display = CubeDisplay::default_colors();
+    // cube_display.display_cubie(&cube);
     loop {
         let (cube, to_cube) = solver.generate_scramble(21);
         for move_action in to_cube {
@@ -127,4 +124,21 @@ fn main() {
         .unwrap();
         disable_raw_mode().unwrap();
     }
+
+}
+
+fn debug() {
+    let solver = Solver::new();
+    let cube_display = CubeDisplay::default_colors();
+    let mut cube = Cubie::from_string("YBYGWBOOGWOBWRYYRRWWRGGRBORWGGRYYYRBOWGOOYOGORWGBBYWBB").unwrap();
+    let  moves = solver.solve(&cube, 21).unwrap();
+    cube_display.display_cubie(&cube);
+    cube = cube.apply_moves(&moves);
+    cube_display.display_cubie(&cube);
+    println!("{:?}", moves);
+}
+
+fn main() {
+    timer();
+    // debug();
 }
