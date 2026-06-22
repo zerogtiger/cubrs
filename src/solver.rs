@@ -99,6 +99,7 @@ impl Solver {
                 cube.edge_permutation_coord(),
                 None,
                 None,
+                cube,
             ) {
                 return Ok(solution);
             }
@@ -121,15 +122,10 @@ impl Solver {
         orig_edge_perm: u32,
         last_move2: Option<u8>, // move before most recent move
         last_move1: Option<u8>, // most recent move
+        cube: &Cubie,
     ) -> bool {
         if corner_orient_coord == 0 && flip_ud_slice_class_idx == 0 && remaining_move_count == 0 {
-            let mut cube = Cubie::default();
-            cube.set_corner_permutation_coord(orig_corner_perm);
-            cube.set_edge_permutation_coord(orig_edge_perm);
-            cube.set_corner_orientation_coord(orig_corner_orient);
-            cube.set_edge_orientation_coord(orig_edge_orient);
             let phase_2_move_limit = max_move_limit - total_phase_1_move_limit;
-            cube = cube.apply_moves(solution);
             let (corner_perm_sym_class_idx, corner_perm_sym_idx) = self
                 .corner_perm_sym_table
                 .raw_coord_to_sym_coord(cube.corner_permutation_coord());
@@ -141,30 +137,30 @@ impl Solver {
                 phase_2_move_limit,
                 solution,
                 last_move2,
-                last_move1
+                last_move1,
             );
         }
         if remaining_move_count == 0 {
             return false;
         }
+        let forbidden_move_bitmask = match last_move1 {
+            Some(last_move1) => match last_move2 {
+                Some(last_move2) => {
+                    if Move::is_same_dimension(last_move1, last_move2) {
+                        Move::get_same_class_move_bitmask(last_move1)
+                            | Move::get_same_class_move_bitmask(last_move2)
+                    } else {
+                        Move::get_same_class_move_bitmask(last_move1)
+                    }
+                }
+                None => Move::get_same_class_move_bitmask(last_move1),
+            },
+            None => 0,
+        };
         for move_action in Move::ALL {
-            let is_last_move1_same_dimension: bool = match last_move1 {
-                Some(last_move) => {
-                    if Move::is_same_class(move_action as u8, last_move) {
-                        continue;
-                    }
-                    Move::is_same_dimension(move_action as u8, last_move)
-                }
-                _ => false
-            };
-            match last_move2 {
-                Some(last_move) => {
-                    if is_last_move1_same_dimension && Move::is_same_dimension(move_action as u8, last_move) {
-                        continue;
-                    }
-                }
-                _ => {}
-            };
+            if ((1 << ((move_action as u8) as u32)) & forbidden_move_bitmask) != 0 {
+                continue;
+            }
             let next_corner_orient_coord = self
                 .move_table
                 .get_next_corner_orient_coord(corner_orient_coord, move_action as u8);
@@ -199,6 +195,7 @@ impl Solver {
                     orig_edge_perm,
                     last_move1,
                     Some(move_action as u8),
+                    &cube.apply_move(Move::from(move_action)),
                 ) {
                     return true;
                 }
@@ -219,38 +216,33 @@ impl Solver {
         last_move2: Option<u8>, // move before most recent move
         last_move1: Option<u8>, // most recent move
     ) -> bool {
-        if corner_perm_sym_class_idx == 0 && phase2_edge_perm_coord == 0 && phase2_ud_slice_coord == 0 {
+        if corner_perm_sym_class_idx == 0
+            && phase2_edge_perm_coord == 0
+            && phase2_ud_slice_coord == 0
+        {
             return true;
         }
         if remaining_move_count == 0 {
             return false;
         }
-        // let last_move = match last_move {
-        //     Some(last_move) => {
-        //         last_move
-        //     }
-        //     None => {
-        //         u8::MAX
-        //     }
-        // };
+        let forbidden_move_bitmask = match last_move1 {
+            Some(last_move1) => match last_move2 {
+                Some(last_move2) => {
+                    if Move::is_same_dimension(last_move1, last_move2) {
+                        Move::get_same_class_move_bitmask(last_move1)
+                            | Move::get_same_class_move_bitmask(last_move2)
+                    } else {
+                        Move::get_same_class_move_bitmask(last_move1)
+                    }
+                }
+                None => Move::get_same_class_move_bitmask(last_move1),
+            },
+            None => 0,
+        };
         for move_action in Move::G1PRESERVING {
-            let is_last_move1_same_dimension: bool = match last_move1 {
-                Some(last_move) => {
-                    if Move::is_same_class(move_action as u8, last_move) {
-                        continue;
-                    }
-                    Move::is_same_dimension(move_action as u8, last_move)
-                }
-                _ => false
-            };
-            match last_move2 {
-                Some(last_move) => {
-                    if is_last_move1_same_dimension && Move::is_same_dimension(move_action as u8, last_move) {
-                        continue;
-                    }
-                }
-                _ => {}
-            };
+            if ((1 << ((move_action as u8) as u32)) & forbidden_move_bitmask) != 0 {
+                continue;
+            }
             let next_phase2_edge_perm_coord = self
                 .move_table
                 .get_next_phase2_edge_perm_coord(phase2_edge_perm_coord, move_action as u8);

@@ -19,22 +19,22 @@ macro_rules! map_to_u8 {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Move {
     U = 0,
-    U2,
+    U2, // 1
     U3,
     D,
     D2,
-    D3,
+    D3, // 5
     F,
-    F2,
+    F2, // 7
     F3,
     B,
-    B2,
+    B2, // 10
     B3,
     L,
-    L2,
+    L2, // 13
     L3,
     R,
-    R2,
+    R2, // 16
     R3,
 }
 
@@ -154,6 +154,18 @@ impl Move {
 
     pub fn is_same_dimension(move1: u8, move2: u8) -> bool {
         move1 / 6 == move2 / 6
+    }
+
+    pub fn get_same_class_move_bitmask(move_action: u8) -> u32 {
+        let mut ret = 0;
+        let floored = move_action / 3 * 3;
+        ret |= ((1 << floored) | (1 << (floored + 1)) | (1 << (floored + 2)));
+        ret
+    }
+
+    pub fn is_phase2_move(&self) -> bool {
+        (*self as u8) < 6 || (*self as u8) % 3 == 1
+        // U, U2, U3, D, D2, D3, R2, L2, F2, B2
     }
 
     pub fn move_list_from_str(moves: &str) -> Result<Vec<Move>, ()> {

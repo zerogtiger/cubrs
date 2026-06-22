@@ -219,9 +219,9 @@ cargo build --release
 Requires Rust 1.70+. Tables are generated automatically on first run and stored in a `tables/` directory.
 
 ## Todo
-- [ ] Even faster solver: move axis pruning
+- [x] Even faster solver: move axis pruning
 - [ ] Even faster solver: multi-threading
-- [ ] Even faster solver: pruning table for phase 2 UD slice
+- [ ] ~Even faster solver: pruning table for phase 2 UD slice~ (no change in speed)
 - [ ] WCA Ao5 and Ao12 statistics for timer
 
 ## Development notes
