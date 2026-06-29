@@ -1,5 +1,5 @@
 use crate::facelet::{CORNER_FACES, Color, EDGE_FACES, Facelet};
-use crate::moves::Move;
+use crate::moves::{B_MOVE, D_MOVE, F_MOVE, L_MOVE, Move, R_MOVE, U_MOVE};
 use core::assert;
 use core::iter::Iterator;
 use std::collections::HashMap;
@@ -647,5 +647,149 @@ impl Mul for Cubie {
                 % 2;
         }
         ret
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct EdgePermutation {
+    edge_permutation: [u8; 12],
+}
+
+impl Default for EdgePermutation {
+    fn default() -> Self {
+        EdgePermutation {
+            edge_permutation: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+        }
+    }
+}
+
+impl Mul for EdgePermutation {
+    type Output = EdgePermutation;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        let mut ret: EdgePermutation = Default::default();
+        for i in 0..12 {
+            ret.edge_permutation[i] = self.edge_permutation[rhs.edge_permutation[i] as usize];
+        }
+        ret
+    }
+}
+
+impl EdgePermutation {
+    pub const U: EdgePermutation = EdgePermutation {
+        edge_permutation: U_MOVE.edge_permutation,
+    };
+    pub const D: EdgePermutation = EdgePermutation {
+        edge_permutation: D_MOVE.edge_permutation,
+    };
+    pub const R: EdgePermutation = EdgePermutation {
+        edge_permutation: R_MOVE.edge_permutation,
+    };
+    pub const L: EdgePermutation = EdgePermutation {
+        edge_permutation: L_MOVE.edge_permutation,
+    };
+    pub const F: EdgePermutation = EdgePermutation {
+        edge_permutation: F_MOVE.edge_permutation,
+    };
+    pub const B: EdgePermutation = EdgePermutation {
+        edge_permutation: B_MOVE.edge_permutation,
+    };
+    pub const ALL: [EdgePermutation; 18] = [
+        Self::U,
+        Self::compose_edge_perm(Self::U, Self::U),
+        Self::compose_edge_perm(Self::U, Self::compose_edge_perm(Self::U, Self::U)),
+        Self::D,
+        Self::compose_edge_perm(Self::D, Self::D),
+        Self::compose_edge_perm(Self::D, Self::compose_edge_perm(Self::D, Self::D)),
+        Self::F,
+        Self::compose_edge_perm(Self::F, Self::F),
+        Self::compose_edge_perm(Self::F, Self::compose_edge_perm(Self::F, Self::F)),
+        Self::B,
+        Self::compose_edge_perm(Self::B, Self::B),
+        Self::compose_edge_perm(Self::B, Self::compose_edge_perm(Self::B, Self::B)),
+        Self::L,
+        Self::compose_edge_perm(Self::L, Self::L),
+        Self::compose_edge_perm(Self::L, Self::compose_edge_perm(Self::L, Self::L)),
+        Self::R,
+        Self::compose_edge_perm(Self::R, Self::R),
+        Self::compose_edge_perm(Self::R, Self::compose_edge_perm(Self::R, Self::R)),
+    ];
+
+    const fn compose_edge_perm(a: EdgePermutation, b: EdgePermutation) -> EdgePermutation {
+        let mut result = [0u8; 12];
+        let mut i = 0;
+        while i < 12 {
+            result[i] = a.edge_permutation[b.edge_permutation[i] as usize];
+            i += 1;
+        }
+        EdgePermutation {
+            edge_permutation: result,
+        }
+    }
+
+    pub fn edge_permutation_coord(&self) -> u32 {
+        let mut ret: u32 = 0;
+        let mut factorial: u32 = 1;
+        for idx in 1..12 {
+            factorial *= idx as u32;
+            let mut accum = 0;
+            for curr in 0..idx {
+                accum += match self.edge_permutation[curr] > self.edge_permutation[idx] as u8 {
+                    true => 1,
+                    false => 0,
+                };
+            }
+            ret += accum * factorial;
+        }
+        ret
+    }
+
+    pub fn set_edge_permutation_coord(&mut self, mut edge_perm_coord: u32) {
+        let mut items = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+        for idx in (0..12).rev() {
+            self.edge_permutation[idx] =
+                items.remove(idx - (edge_perm_coord / FACTORIAL[idx]) as usize);
+            edge_perm_coord %= FACTORIAL[idx];
+        }
+    }
+
+    pub fn phase2_edge_permutation_coord(&self) -> u16 {
+        // TODO: asserts cube is in G1
+        let mut ret: u16 = 0;
+        let mut factorial: u32 = 1;
+        for idx in 1..8 {
+            factorial *= idx as u32;
+            let mut accum = 0;
+            for curr in 0..idx {
+                accum += match self.edge_permutation[curr] > self.edge_permutation[idx] as u8 {
+                    true => 1,
+                    false => 0,
+                };
+            }
+            ret += accum * factorial as u16;
+        }
+        ret
+    }
+
+    pub fn phase2_ud_slice_coord(&self) -> u8 {
+        // TODO: asserts cube is in G1
+        let mut ret: u8 = 0;
+        let mut factorial: u16 = 1;
+        for idx in 1..4 {
+            factorial *= idx as u16;
+            let mut accum = 0;
+            for curr in 8..(8 + idx) {
+                accum += match self.edge_permutation[curr] > self.edge_permutation[8 + idx] as u8 {
+                    true => 1,
+                    false => 0,
+                };
+            }
+            ret += accum * factorial as u8;
+        }
+        ret
+    }
+
+    pub fn apply_move(self, move_action: Move) -> Self {
+        self * EdgePermutation::ALL[(move_action as u8) as usize]
     }
 }

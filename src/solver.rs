@@ -1,10 +1,10 @@
 use core::convert::From;
-use std::sync::Arc;
+use std::sync::{Arc, atomic::AtomicU64};
 
 use crate::{
     cubie::{
         CORNER_ORIENTATION_COUNT, CORNER_PERMUTATION_COUNT, Cubie, EDGE_ORIENTATION_COUNT,
-        EDGE_PERMUTATION_COUNT,
+        EDGE_PERMUTATION_COUNT, EdgePermutation,
     },
     moves::Move,
     movetable::{
@@ -84,22 +84,25 @@ impl Solver {
             flip_ud_slice_class_idx,
             flip_ud_slice_sym_idx,
         );
+        let (corner_perm_sym_class_idx, corner_perm_sym_idx) = self
+            .corner_perm_sym_table
+            .raw_coord_to_sym_coord(cube.corner_permutation_coord());
+        let mut edge_permutation = EdgePermutation::default();
+        edge_permutation.set_edge_permutation_coord(cube.edge_permutation_coord());
         for phase_1_limit in phase1_optimal_depth..move_limit {
             if self.solve_phase_1_recurse(
                 corner_orient_coord,
                 flip_ud_slice_class_idx,
                 flip_ud_slice_sym_idx,
+                corner_perm_sym_class_idx,
+                corner_perm_sym_idx,
                 phase_1_limit,
                 phase_1_limit,
                 move_limit,
                 &mut solution,
-                cube.corner_orientation_coord(),
-                cube.edge_orientation_coord(),
-                cube.corner_permutation_coord(),
-                cube.edge_permutation_coord(),
                 None,
                 None,
-                cube,
+                edge_permutation,
             ) {
                 return Ok(solution);
             }
@@ -112,28 +115,25 @@ impl Solver {
         corner_orient_coord: u16,
         flip_ud_slice_class_idx: u16,
         flip_ud_slice_sym_idx: u8,
+        corner_perm_sym_class_idx: u16, // phase 2
+        corner_perm_sym_idx: u8,        // phase 2
         remaining_move_count: u8,
         total_phase_1_move_limit: u8,
         max_move_limit: u8,
         solution: &mut Vec<Move>,
-        orig_corner_orient: u16,
-        orig_edge_orient: u16,
-        orig_corner_perm: u16,
-        orig_edge_perm: u32,
         last_move2: Option<u8>, // move before most recent move
         last_move1: Option<u8>, // most recent move
-        cube: &Cubie,
+        edge_permutation: EdgePermutation,
     ) -> bool {
         if corner_orient_coord == 0 && flip_ud_slice_class_idx == 0 && remaining_move_count == 0 {
             let phase_2_move_limit = max_move_limit - total_phase_1_move_limit;
-            let (corner_perm_sym_class_idx, corner_perm_sym_idx) = self
-                .corner_perm_sym_table
-                .raw_coord_to_sym_coord(cube.corner_permutation_coord());
+            // self.raw_coord_called
+            //     .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             return self.solve_phase_2_recurse(
                 corner_perm_sym_class_idx,
                 corner_perm_sym_idx,
-                cube.phase2_edge_permutation_coord(),
-                cube.phase2_ud_slice_coord(),
+                edge_permutation.phase2_edge_permutation_coord(),
+                edge_permutation.phase2_ud_slice_coord(),
                 phase_2_move_limit,
                 solution,
                 last_move2,
@@ -179,23 +179,28 @@ impl Solver {
             if next_optimal_depth == 0 && remaining_move_count > 1 {
                 continue;
             }
+            let (next_corner_perm_sym_class_idx, next_corner_perm_sym_idx) =
+                self.move_table.get_next_corner_perm_sym_coord(
+                    corner_perm_sym_class_idx,
+                    corner_perm_sym_idx,
+                    move_action as u8,
+                );
+
             if next_optimal_depth <= remaining_move_count - 1 {
                 solution.push(Move::from(move_action));
                 if self.solve_phase_1_recurse(
                     next_corner_orient_coord,
                     next_flip_ud_slice_class_idx,
                     next_flip_ud_slice_sym_idx,
+                    next_corner_perm_sym_class_idx,
+                    next_corner_perm_sym_idx,
                     remaining_move_count - 1,
                     total_phase_1_move_limit,
                     max_move_limit,
                     solution,
-                    orig_corner_orient,
-                    orig_edge_orient,
-                    orig_corner_perm,
-                    orig_edge_perm,
                     last_move1,
                     Some(move_action as u8),
-                    &cube.apply_move(Move::from(move_action)),
+                    edge_permutation.apply_move(move_action),
                 ) {
                     return true;
                 }

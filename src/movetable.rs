@@ -1,11 +1,6 @@
 use std::io::{BufReader, BufWriter, Read, Write, stdout};
 
-use core::{
-    assert,
-    cmp::max,
-    convert::TryFrom,
-    fmt::Debug,
-};
+use core::{assert, cmp::max, convert::TryFrom, fmt::Debug};
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::{collections::HashMap, fs::File};
